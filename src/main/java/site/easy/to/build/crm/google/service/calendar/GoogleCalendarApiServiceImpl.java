@@ -1,18 +1,5 @@
 package site.easy.to.build.crm.google.service.calendar;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.api.client.http.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import site.easy.to.build.crm.entity.Lead;
-import site.easy.to.build.crm.entity.OAuthUser;
-import site.easy.to.build.crm.google.model.calendar.*;
-import site.easy.to.build.crm.google.util.GoogleApiHelper;
-import site.easy.to.build.crm.service.lead.LeadService;
-import site.easy.to.build.crm.service.user.OAuthUserService;
-import site.easy.to.build.crm.google.util.TimeDateUtil;
-
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -21,6 +8,29 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.api.client.http.ByteArrayContent;
+import com.google.api.client.http.GenericUrl;
+import com.google.api.client.http.HttpContent;
+import com.google.api.client.http.HttpRequest;
+import com.google.api.client.http.HttpRequestFactory;
+import com.google.api.client.http.HttpResponse;
+
+import site.easy.to.build.crm.entity.Lead;
+import site.easy.to.build.crm.entity.OAuthUser;
+import site.easy.to.build.crm.google.model.calendar.Event;
+import site.easy.to.build.crm.google.model.calendar.EventDateTime;
+import site.easy.to.build.crm.google.model.calendar.EventDisplay;
+import site.easy.to.build.crm.google.model.calendar.EventDisplayList;
+import site.easy.to.build.crm.google.model.calendar.EventList;
+import site.easy.to.build.crm.google.util.GoogleApiHelper;
+import site.easy.to.build.crm.google.util.TimeDateUtil;
+import site.easy.to.build.crm.service.lead.LeadService;
+import site.easy.to.build.crm.service.user.OAuthUserService;
 
 @Service
 public class GoogleCalendarApiServiceImpl implements GoogleCalendarApiService {
@@ -32,13 +42,15 @@ public class GoogleCalendarApiServiceImpl implements GoogleCalendarApiService {
     private final LeadService leadService;
 
     @Autowired
-    public GoogleCalendarApiServiceImpl(OAuthUserService oAuthUserService, ObjectMapper objectMapper, LeadService leadService) {
+    public GoogleCalendarApiServiceImpl(OAuthUserService oAuthUserService, ObjectMapper objectMapper,
+            LeadService leadService) {
         this.oAuthUserService = oAuthUserService;
         this.objectMapper = objectMapper;
         this.leadService = leadService;
     }
 
-    public EventDisplayList getEvents(String calendarId, OAuthUser oauthUser) throws IOException, GeneralSecurityException {
+    public EventDisplayList getEvents(String calendarId, OAuthUser oauthUser)
+            throws IOException, GeneralSecurityException {
         String accessToken = oAuthUserService.refreshAccessTokenIfNeeded(oauthUser);
 
         HttpRequestFactory requestFactory = GoogleApiHelper.createRequestFactory(accessToken);
@@ -58,6 +70,8 @@ public class GoogleCalendarApiServiceImpl implements GoogleCalendarApiService {
 
         // Convert Event objects to EventDisplay objects
         List<EventDisplay> eventDisplays = eventList.getItems().stream()
+                .filter(event -> event.getStart() != null && event.getStart().getDateTime() != null
+                        && event.getEnd().getDateTime() != null)
                 .map(event -> {
                     EventDateTime start = event.getStart();
                     EventDateTime end = event.getEnd();
@@ -72,15 +86,15 @@ public class GoogleCalendarApiServiceImpl implements GoogleCalendarApiService {
                             endDateTimeParts.get("date"),
                             endDateTimeParts.get("time"),
                             startDateTimeParts.get("timeZone"),
-                            event.getAttendees()
-                    );
+                            event.getAttendees());
                 })
                 .collect(Collectors.toList());
 
         return new EventDisplayList(eventDisplays);
     }
 
-    public String createEvent(String calendarId, OAuthUser oauthUser, Event event) throws IOException, GeneralSecurityException {
+    public String createEvent(String calendarId, OAuthUser oauthUser, Event event)
+            throws IOException, GeneralSecurityException {
         String accessToken = oAuthUserService.refreshAccessTokenIfNeeded(oauthUser);
 
         HttpRequestFactory requestFactory = GoogleApiHelper.createRequestFactory(accessToken);
@@ -97,14 +111,16 @@ public class GoogleCalendarApiServiceImpl implements GoogleCalendarApiService {
         return createdEvent.getId();
     }
 
-    public Event updateEvent(String calendarId, OAuthUser oauthUser, String eventId, Event updatedEvent) throws IOException, GeneralSecurityException {
+    public Event updateEvent(String calendarId, OAuthUser oauthUser, String eventId, Event updatedEvent)
+            throws IOException, GeneralSecurityException {
         String accessToken = oAuthUserService.refreshAccessTokenIfNeeded(oauthUser);
 
         updateLead(oauthUser, eventId, "Meeting updated");
 
         HttpRequestFactory requestFactory = GoogleApiHelper.createRequestFactory(accessToken);
 
-        GenericUrl updateEventUrl = new GenericUrl(API_BASE_URL + calendarId + "/events/" + eventId + "?sendUpdates=all");
+        GenericUrl updateEventUrl = new GenericUrl(
+                API_BASE_URL + calendarId + "/events/" + eventId + "?sendUpdates=all");
         String eventJson = objectMapper.writeValueAsString(updatedEvent);
 
         HttpContent content = new ByteArrayContent("application/json", eventJson.getBytes(StandardCharsets.UTF_8));
@@ -115,25 +131,27 @@ public class GoogleCalendarApiServiceImpl implements GoogleCalendarApiService {
         return objectMapper.readValue(jsonResponse, Event.class);
     }
 
-    public void deleteEvent(String calendarId, OAuthUser oauthUser, String eventId) throws IOException, GeneralSecurityException {
+    public void deleteEvent(String calendarId, OAuthUser oauthUser, String eventId)
+            throws IOException, GeneralSecurityException {
         String accessToken = oAuthUserService.refreshAccessTokenIfNeeded(oauthUser);
 
         updateLead(oauthUser, eventId, "Meeting canceled");
 
         HttpRequestFactory requestFactory = GoogleApiHelper.createRequestFactory(accessToken);
 
-        GenericUrl deleteEventUrl = new GenericUrl(API_BASE_URL + calendarId + "/events/" + eventId + "?sendUpdates=all");
+        GenericUrl deleteEventUrl = new GenericUrl(
+                API_BASE_URL + calendarId + "/events/" + eventId + "?sendUpdates=all");
         HttpRequest request = requestFactory.buildDeleteRequest(deleteEventUrl);
         HttpResponse response = request.execute();
     }
 
-    public EventDisplay getEvent(String calendarId, OAuthUser oauthUser, String eventId) throws IOException, GeneralSecurityException {
+    public EventDisplay getEvent(String calendarId, OAuthUser oauthUser, String eventId)
+            throws IOException, GeneralSecurityException {
         String accessToken = oAuthUserService.refreshAccessTokenIfNeeded(oauthUser);
 
         HttpRequestFactory requestFactory = GoogleApiHelper.createRequestFactory(accessToken);
 
         GenericUrl eventsUrl = new GenericUrl(API_BASE_URL + calendarId + "/events/" + eventId);
-
 
         HttpRequest request = requestFactory.buildGetRequest(eventsUrl);
         HttpResponse response = request.execute();
@@ -153,8 +171,7 @@ public class GoogleCalendarApiServiceImpl implements GoogleCalendarApiService {
                 endDateTimeParts.get("date"),
                 endDateTimeParts.get("time"),
                 startDateTimeParts.get("timeZone"),
-                event.getAttendees()
-        );
+                event.getAttendees());
     }
 
     private void updateLead(OAuthUser oAuthUser, String eventId, String status) {
@@ -162,7 +179,7 @@ public class GoogleCalendarApiServiceImpl implements GoogleCalendarApiService {
         if (lead != null) {
             lead.setEmployee(oAuthUser.getUser());
             lead.setStatus(status);
-            if(status.equals("Meeting canceled")){
+            if (status.equals("Meeting canceled")) {
                 lead.setMeetingId("");
             } else {
                 lead.setMeetingId(eventId);

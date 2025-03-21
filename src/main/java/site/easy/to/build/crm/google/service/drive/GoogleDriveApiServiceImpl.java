@@ -1,9 +1,29 @@
 package site.easy.to.build.crm.google.service.drive;
 
-import com.google.api.client.http.*;
-import com.google.gson.*;
-import com.google.gson.reflect.TypeToken;
+import java.io.IOException;
+import java.lang.reflect.Type;
+import java.security.GeneralSecurityException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+
 import org.springframework.stereotype.Service;
+
+import com.google.api.client.http.ByteArrayContent;
+import com.google.api.client.http.GenericUrl;
+import com.google.api.client.http.HttpContent;
+import com.google.api.client.http.HttpMediaType;
+import com.google.api.client.http.HttpRequest;
+import com.google.api.client.http.HttpRequestFactory;
+import com.google.api.client.http.HttpResponse;
+import com.google.api.client.http.MultipartContent;
+import com.google.gson.Gson;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.reflect.TypeToken;
+
 import site.easy.to.build.crm.entity.File;
 import site.easy.to.build.crm.entity.OAuthUser;
 import site.easy.to.build.crm.google.model.drive.GoogleDriveFile;
@@ -11,13 +31,8 @@ import site.easy.to.build.crm.google.model.drive.GoogleDriveFolder;
 import site.easy.to.build.crm.google.util.GoogleApiHelper;
 import site.easy.to.build.crm.service.user.OAuthUserService;
 
-import java.io.IOException;
-import java.lang.reflect.Type;
-import java.security.GeneralSecurityException;
-import java.util.*;
-
 @Service
-public class  GoogleDriveApiServiceImpl implements GoogleDriveApiService {
+public class GoogleDriveApiServiceImpl implements GoogleDriveApiService {
 
     private static final String API_BASE_URL = "https://www.googleapis.com/drive/v3/files";
 
@@ -33,11 +48,11 @@ public class  GoogleDriveApiServiceImpl implements GoogleDriveApiService {
         String accessToken = oAuthUserService.refreshAccessTokenIfNeeded(oAuthUser);
         HttpRequestFactory httpRequestFactory = GoogleApiHelper.createRequestFactory(accessToken);
 
-        HashMap<String,String> queryParams = new HashMap<>();
+        HashMap<String, String> queryParams = new HashMap<>();
         queryParams.put("q", "mimeType != 'application/vnd.google-apps.folder'");
-        queryParams.put("fields","nextPageToken,files(id,name,mimeType,webViewLink,createdTime)");
+        queryParams.put("fields", "nextPageToken,files(id,name,mimeType,webViewLink,createdTime)");
 
-        GenericUrl driveUrl = GoogleApiHelper.buildGenericUrl(API_BASE_URL,queryParams);
+        GenericUrl driveUrl = GoogleApiHelper.buildGenericUrl(API_BASE_URL, queryParams);
         HttpRequest request = httpRequestFactory.buildGetRequest(driveUrl);
         HttpResponse response = request.execute();
         String respondBody = response.parseAsString();
@@ -45,14 +60,16 @@ public class  GoogleDriveApiServiceImpl implements GoogleDriveApiService {
         JsonObject jsonResponse = gson.fromJson(respondBody, JsonObject.class);
         JsonArray filesArray = jsonResponse.getAsJsonArray("files");
 
-        Type fileListType = new TypeToken<List<GoogleDriveFile>>() {}.getType();
+        Type fileListType = new TypeToken<List<GoogleDriveFile>>() {
+        }.getType();
 
         return gson.fromJson(filesArray, fileListType);
 
     }
 
     @Override
-    public List<GoogleDriveFile> listFilesInFolder(OAuthUser oAuthUser, String folderId) throws IOException, GeneralSecurityException {
+    public List<GoogleDriveFile> listFilesInFolder(OAuthUser oAuthUser, String folderId)
+            throws IOException, GeneralSecurityException {
         String accessToken = oAuthUserService.refreshAccessTokenIfNeeded(oAuthUser);
         HttpRequestFactory httpRequestFactory = GoogleApiHelper.createRequestFactory(accessToken);
 
@@ -68,13 +85,15 @@ public class  GoogleDriveApiServiceImpl implements GoogleDriveApiService {
         JsonObject jsonResponse = gson.fromJson(responseBody, JsonObject.class);
         JsonArray filesArray = jsonResponse.getAsJsonArray("files");
 
-        Type fileListType = new TypeToken<List<GoogleDriveFile>>() {}.getType();
+        Type fileListType = new TypeToken<List<GoogleDriveFile>>() {
+        }.getType();
 
         return gson.fromJson(filesArray, fileListType);
     }
 
     @Override
-    public void createWorkspaceFile(OAuthUser oAuthUser, String name, String type) throws IOException, GeneralSecurityException {
+    public void createWorkspaceFile(OAuthUser oAuthUser, String name, String type)
+            throws IOException, GeneralSecurityException {
         String mimeType = getMimeTypeForType(type);
 
         JsonObject fileMetadata = new JsonObject();
@@ -84,10 +103,10 @@ public class  GoogleDriveApiServiceImpl implements GoogleDriveApiService {
         String accessToken = oAuthUserService.refreshAccessTokenIfNeeded(oAuthUser);
         HttpRequestFactory httpRequestFactory = GoogleApiHelper.createRequestFactory(accessToken);
 
-        HashMap<String,String> queryParams = new HashMap<>();
-        queryParams.put("fields","id,name,mimeType,webViewLink,createdTime");
+        HashMap<String, String> queryParams = new HashMap<>();
+        queryParams.put("fields", "id,name,mimeType,webViewLink,createdTime");
 
-        GenericUrl driveUrl = GoogleApiHelper.buildGenericUrl(API_BASE_URL,queryParams);
+        GenericUrl driveUrl = GoogleApiHelper.buildGenericUrl(API_BASE_URL, queryParams);
 
         HttpContent httpContent = ByteArrayContent.fromString("application/json", fileMetadata.toString());
 
@@ -97,7 +116,8 @@ public class  GoogleDriveApiServiceImpl implements GoogleDriveApiService {
     }
 
     @Override
-    public List<String> uploadWorkspaceFile(OAuthUser oAuthUser, List<File> files, String folderId) throws IOException, GeneralSecurityException {
+    public List<String> uploadWorkspaceFile(OAuthUser oAuthUser, List<File> files, String folderId)
+            throws IOException, GeneralSecurityException {
         String accessToken = oAuthUserService.refreshAccessTokenIfNeeded(oAuthUser);
         HttpRequestFactory httpRequestFactory = GoogleApiHelper.createRequestFactory(accessToken);
         List<String> fileIds = new ArrayList<>();
@@ -113,8 +133,7 @@ public class  GoogleDriveApiServiceImpl implements GoogleDriveApiService {
             ByteArrayContent content = new ByteArrayContent(mimeType, fileData);
             com.google.api.client.http.HttpRequest request = httpRequestFactory.buildPostRequest(
                     new GenericUrl("https://www.googleapis.com/upload/drive/v3/files"),
-                    content
-            );
+                    content);
 
             request.getHeaders().set("Authorization", "Bearer " + accessToken);
             request.getHeaders().set("Content-Disposition", "attachment; filename=\"" + name + "\"");
@@ -124,7 +143,11 @@ public class  GoogleDriveApiServiceImpl implements GoogleDriveApiService {
             metadataJson.addProperty("mimeType", mimeType);
             JsonArray parentsArray = new JsonArray();
 
-            if (!folderId.isEmpty()) {
+            // if (!folderId.isEmpty()) {
+            // parentsArray.add(folderId);
+            // metadataJson.add("parents", parentsArray);
+            // }
+            if (folderId != null && !folderId.isEmpty()) {
                 parentsArray.add(folderId);
                 metadataJson.add("parents", parentsArray);
             }
@@ -139,7 +162,7 @@ public class  GoogleDriveApiServiceImpl implements GoogleDriveApiService {
             multipartContent.addPart(new MultipartContent.Part(new ByteArrayContent(mimeType, fileData)));
 
             request.setContent(multipartContent);
-//            request.getHeaders().set("name", name);
+            // request.getHeaders().set("name", name);
             HttpResponse response = request.execute();
             JsonObject jsonResponse = JsonParser.parseString(response.parseAsString()).getAsJsonObject();
             String fileId = jsonResponse.get("id").getAsString();
@@ -159,7 +182,7 @@ public class  GoogleDriveApiServiceImpl implements GoogleDriveApiService {
 
         ByteArrayContent content = ByteArrayContent.fromString("application/json", folderMetadata.toString());
 
-        GenericUrl driveUrl = GoogleApiHelper.buildGenericUrl(API_BASE_URL,null);
+        GenericUrl driveUrl = GoogleApiHelper.buildGenericUrl(API_BASE_URL, null);
 
         HttpRequest request = httpRequestFactory.buildPostRequest(driveUrl, content);
         HttpResponse response = request.execute();
@@ -179,13 +202,15 @@ public class  GoogleDriveApiServiceImpl implements GoogleDriveApiService {
         HttpResponse response = request.execute();
 
     }
+
     @Override
-    public void createFileInFolder(OAuthUser oAuthUser, String fileName, String folderId, String type) throws IOException, GeneralSecurityException {
+    public void createFileInFolder(OAuthUser oAuthUser, String fileName, String folderId, String type)
+            throws IOException, GeneralSecurityException {
         String mimeType = getMimeTypeForType(type);
         JsonObject fileMetadata = new JsonObject();
         fileMetadata.addProperty("name", fileName);
         fileMetadata.addProperty("mimeType", mimeType);
-        if(!folderId.isEmpty()){
+        if (!folderId.isEmpty()) {
             JsonArray parentsArray = new JsonArray();
             parentsArray.add(folderId);
             fileMetadata.add("parents", parentsArray);
@@ -196,34 +221,35 @@ public class  GoogleDriveApiServiceImpl implements GoogleDriveApiService {
 
         ByteArrayContent content = ByteArrayContent.fromString("application/json", fileMetadata.toString());
 
+        HashMap<String, String> queryParams = new HashMap<>();
+        queryParams.put("fields", "id,name,mimeType,webViewLink,createdTime");
 
-        HashMap<String,String> queryParams = new HashMap<>();
-        queryParams.put("fields","id,name,mimeType,webViewLink,createdTime");
-
-        GenericUrl driveUrl = GoogleApiHelper.buildGenericUrl(API_BASE_URL,queryParams);
+        GenericUrl driveUrl = GoogleApiHelper.buildGenericUrl(API_BASE_URL, queryParams);
 
         HttpRequest request = httpRequestFactory.buildPostRequest(driveUrl, content);
         request.execute();
     }
-    public void findOrCreateTemplateFolder(OAuthUser oAuthUser, String folderName) throws IOException, GeneralSecurityException {
+
+    public void findOrCreateTemplateFolder(OAuthUser oAuthUser, String folderName)
+            throws IOException, GeneralSecurityException {
         List<GoogleDriveFolder> folders = listFolders(oAuthUser);
         for (GoogleDriveFolder folder : folders) {
             if (folder.getName().equals(folderName)) {
                 return;
             }
         }
-        createFolder(oAuthUser,folderName);
+        createFolder(oAuthUser, folderName);
     }
+
     public List<GoogleDriveFolder> listFolders(OAuthUser oAuthUser) throws IOException, GeneralSecurityException {
         String accessToken = oAuthUserService.refreshAccessTokenIfNeeded(oAuthUser);
         HttpRequestFactory httpRequestFactory = GoogleApiHelper.createRequestFactory(accessToken);
 
-        HashMap<String,String> queryParams = new HashMap<>();
+        HashMap<String, String> queryParams = new HashMap<>();
         queryParams.put("fields", "nextPageToken,files(id,name,mimeType,webViewLink,createdTime)");
         queryParams.put("q", "mimeType='application/vnd.google-apps.folder' and trashed = false");
 
-        GenericUrl driveUrl = GoogleApiHelper.buildGenericUrl(API_BASE_URL,queryParams);
-
+        GenericUrl driveUrl = GoogleApiHelper.buildGenericUrl(API_BASE_URL, queryParams);
 
         HttpRequest request = httpRequestFactory.buildGetRequest(driveUrl);
         HttpResponse response = request.execute();
@@ -232,12 +258,14 @@ public class  GoogleDriveApiServiceImpl implements GoogleDriveApiService {
         JsonObject jsonResponse = gson.fromJson(respondBody, JsonObject.class);
         JsonArray filesArray = jsonResponse.getAsJsonArray("files");
 
-        Type fileListType = new TypeToken<List<GoogleDriveFolder>>() {}.getType();
+        Type fileListType = new TypeToken<List<GoogleDriveFolder>>() {
+        }.getType();
 
         return gson.fromJson(filesArray, fileListType);
     }
 
-    public void shareFileWithUser(OAuthUser oAuthUser, String fileId, String email, String role) throws IOException, GeneralSecurityException {
+    public void shareFileWithUser(OAuthUser oAuthUser, String fileId, String email, String role)
+            throws IOException, GeneralSecurityException {
         String accessToken = oAuthUserService.refreshAccessTokenIfNeeded(oAuthUser);
         HttpRequestFactory httpRequestFactory = GoogleApiHelper.createRequestFactory(accessToken);
 
