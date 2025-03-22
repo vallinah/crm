@@ -1,15 +1,33 @@
 package site.easy.to.build.crm.controller;
 
-import jakarta.persistence.EntityManager;
-import jakarta.servlet.http.HttpSession;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
-import site.easy.to.build.crm.entity.*;
-import site.easy.to.build.crm.entity.settings.*;
+
+import jakarta.persistence.EntityManager;
+import jakarta.servlet.http.HttpSession;
+import site.easy.to.build.crm.entity.EmailTemplate;
+import site.easy.to.build.crm.entity.OAuthUser;
+import site.easy.to.build.crm.entity.User;
+import site.easy.to.build.crm.entity.settings.ContractEmailSettings;
+import site.easy.to.build.crm.entity.settings.EmailSettings;
+import site.easy.to.build.crm.entity.settings.LeadEmailSettings;
+import site.easy.to.build.crm.entity.settings.TicketEmailSettings;
 import site.easy.to.build.crm.service.email.EmailTemplateService;
 import site.easy.to.build.crm.service.settings.ContractEmailSettingsService;
 import site.easy.to.build.crm.service.settings.LeadEmailSettingsService;
@@ -18,10 +36,6 @@ import site.easy.to.build.crm.service.user.UserService;
 import site.easy.to.build.crm.util.AuthenticationUtils;
 import site.easy.to.build.crm.util.DatabaseUtil;
 import site.easy.to.build.crm.util.StringUtils;
-
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.*;
 
 @Controller
 @RequestMapping("/employee/settings")
