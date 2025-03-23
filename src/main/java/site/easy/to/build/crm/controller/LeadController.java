@@ -29,7 +29,9 @@ import site.easy.to.build.crm.service.customer.CustomerService;
 import site.easy.to.build.crm.service.drive.GoogleDriveFileService;
 import site.easy.to.build.crm.service.file.FileService;
 import site.easy.to.build.crm.service.lead.LeadActionService;
+import site.easy.to.build.crm.service.lead.LeadExpenseService;
 import site.easy.to.build.crm.service.lead.LeadService;
+import site.easy.to.build.crm.service.lead.TriggerLeadHistoService;
 import site.easy.to.build.crm.service.settings.LeadEmailSettingsService;
 import site.easy.to.build.crm.service.user.UserService;
 import site.easy.to.build.crm.util.*;
@@ -37,6 +39,7 @@ import site.easy.to.build.crm.util.*;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.math.BigDecimal;
 import java.security.GeneralSecurityException;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -60,12 +63,19 @@ public class LeadController {
     private final LeadEmailSettingsService leadEmailSettingsService;
     private final GoogleGmailApiService googleGmailApiService;
     private final EntityManager entityManager;
+    private final TriggerLeadHistoService triggerLeadHistoService;
+    private final LeadExpenseService leadExpenseService;
 
     @Autowired
-    public LeadController(LeadService leadService, AuthenticationUtils authenticationUtils, UserService userService, CustomerService customerService,
-                          LeadActionService leadActionService, GoogleCalendarApiService googleCalendarApiService, FileService fileService,
-                          GoogleDriveApiService googleDriveApiService, GoogleDriveFileService googleDriveFileService, FileUtil fileUtil,
-                          LeadEmailSettingsService leadEmailSettingsService, GoogleGmailApiService googleGmailApiService, EntityManager entityManager) {
+    public LeadController(LeadService leadService, AuthenticationUtils authenticationUtils, UserService userService,
+            CustomerService customerService,
+            LeadActionService leadActionService, GoogleCalendarApiService googleCalendarApiService,
+            FileService fileService,
+            GoogleDriveApiService googleDriveApiService, GoogleDriveFileService googleDriveFileService,
+            FileUtil fileUtil,
+            LeadEmailSettingsService leadEmailSettingsService, GoogleGmailApiService googleGmailApiService,
+            EntityManager entityManager, TriggerLeadHistoService triggerLeadHistoService,
+            LeadExpenseService leadExpenseService) {
         this.leadService = leadService;
         this.authenticationUtils = authenticationUtils;
         this.userService = userService;
@@ -79,28 +89,32 @@ public class LeadController {
         this.leadEmailSettingsService = leadEmailSettingsService;
         this.googleGmailApiService = googleGmailApiService;
         this.entityManager = entityManager;
+        this.triggerLeadHistoService = triggerLeadHistoService;
+        this.leadExpenseService = leadExpenseService;
     }
 
     @GetMapping("/show/{id}")
     public String showDetails(@PathVariable("id") int id, Model model, Authentication authentication) {
         int userId = authenticationUtils.getLoggedInUserId(authentication);
         User loggedInUser = userService.findById(userId);
-        if(loggedInUser.isInactiveUser()) {
+        if (loggedInUser.isInactiveUser()) {
             return "error/account-inactive";
         }
 
         Lead lead = leadService.findByLeadId(id);
 
-        if(lead == null) {
-            return  "error/not-found";
+        if (lead == null) {
+            return "error/not-found";
         }
         User employee = lead.getEmployee();
-        if(!AuthorizationUtil.hasRole(authentication, "ROLE_MANAGER") && !AuthorizationUtil.checkIfUserAuthorized(employee,loggedInUser)) {
+        if (!AuthorizationUtil.hasRole(authentication, "ROLE_MANAGER")
+                && !AuthorizationUtil.checkIfUserAuthorized(employee, loggedInUser)) {
             return "error/access-denied";
         }
 
         EventDisplay eventDisplay = null;
         String eventId = lead.getMeetingId();
+        LeadExpense leadDisplay = leadExpenseService.findLatestByTriggerLeadHistoId(lead.getLeadId());
         List<File> files = fileService.findByLeadId(id);
         List<Attachment> attachments = new ArrayList<>();
         for (File file : files) {
@@ -108,7 +122,8 @@ public class LeadController {
             Attachment attachment = new Attachment(file.getFileName(), base64Data, file.getFileType());
             attachments.add(attachment);
         }
-        if (!(authentication instanceof UsernamePasswordAuthenticationToken) && eventId != null && !eventId.isEmpty() && googleCalendarApiService != null) {
+        if (!(authentication instanceof UsernamePasswordAuthenticationToken) && eventId != null && !eventId.isEmpty()
+                && googleCalendarApiService != null) {
             OAuthUser oAuthUser = authenticationUtils.getOAuthUserFromAuthentication(authentication);
             try {
                 eventDisplay = googleCalendarApiService.getEvent("primary", oAuthUser, eventId);
@@ -120,6 +135,7 @@ public class LeadController {
         model.addAttribute("lead", lead);
         model.addAttribute("event", eventDisplay);
         model.addAttribute("attachments", attachments);
+        model.addAttribute("leadExpense", leadDisplay);
         return "lead/show-details";
     }
 
@@ -135,6 +151,7 @@ public class LeadController {
     public String showCreatedEmployeeLeads(Authentication authentication, Model model) {
         int userId = authenticationUtils.getLoggedInUserId(authentication);
         List<Lead> leads = leadService.findCreatedLeads(userId);
+
         model.addAttribute("leads", leads);
         return "lead/show-my-leads";
     }
@@ -156,27 +173,30 @@ public class LeadController {
     public String showCreatingForm(Model model, Authentication authentication) {
         int userId = authenticationUtils.getLoggedInUserId(authentication);
         User user = userService.findById(userId);
-        if(user.isInactiveUser()) {
+        if (user.isInactiveUser()) {
             return "error/account-inactive";
         }
         populateModelAttributes(model, authentication, user);
         model.addAttribute("lead", new Lead());
+        LeadExpense leadExpense = new LeadExpense();
+        model.addAttribute("leadExpense", leadExpense);
         return "lead/create-lead";
     }
 
     @PostMapping("/create")
     public String createLead(@ModelAttribute("lead") @Validated Lead lead, BindingResult bindingResult,
-                             @RequestParam("customerId") int customerId, @RequestParam("employeeId") int employeeId,
-                             Authentication authentication, @RequestParam("allFiles")@Nullable String files,
-                             @RequestParam("folderId") @Nullable String folderId, Model model) throws JsonProcessingException {
+            @RequestParam("customerId") int customerId, @RequestParam("employeeId") int employeeId,
+            Authentication authentication, @RequestParam("allFiles") @Nullable String files,
+            @RequestParam("folderId") @Nullable String folderId, @RequestParam("expense") BigDecimal expense,
+            Model model) throws JsonProcessingException {
 
         int userId = authenticationUtils.getLoggedInUserId(authentication);
         User manager = userService.findById(userId);
-        if(manager.isInactiveUser()) {
+        if (manager.isInactiveUser()) {
             return "error/account-inactive";
         }
 
-        if(bindingResult.hasErrors()) {
+        if (bindingResult.hasErrors()) {
             User user = userService.findById(userId);
             populateModelAttributes(model, authentication, user);
             return "lead/create-lead";
@@ -184,7 +204,7 @@ public class LeadController {
 
         User employee = userService.findById(employeeId);
         Customer customer = customerService.findByCustomerId(customerId);
-        if(AuthorizationUtil.hasRole(authentication, "ROLE_EMPLOYEE") && (employee.getId() != userId)) {
+        if (AuthorizationUtil.hasRole(authentication, "ROLE_EMPLOYEE") && (employee.getId() != userId)) {
             return "error/500";
         }
         lead.setCustomer(customer);
@@ -214,11 +234,20 @@ public class LeadController {
         if (lead.getGoogleDrive() != null) {
             fileUtil.saveGoogleDriveFiles(authentication, allFiles, folderId, createdLead);
         }
+        TriggerLeadHisto triggerLeadHisto = new TriggerLeadHisto(createdLead.getLeadId(), createdLead.getName(),
+                createdLead.getPhone(), createdLead.getStatus(), createdLead.getMeetingId(),
+                createdLead.getGoogleDrive(), createdLead.getGoogleDriveFolderId());
+        TriggerLeadHisto createTriggerLeadHisto = triggerLeadHistoService.save(triggerLeadHisto);
+        LeadExpense leadExpense = new LeadExpense();
+        leadExpense.setAmount(expense);
+        leadExpense.setCreatedAt(createdLead.getCreatedAt());
+        leadExpense.setTriggerLeadHisto(createTriggerLeadHisto);
+        LeadExpense createExpense = leadExpenseService.save(leadExpense);
 
         if (lead.getStatus().equals("meeting-to-schedule")) {
             return "redirect:/employee/calendar/create-event?leadId=" + lead.getLeadId();
         }
-        if(AuthorizationUtil.hasRole(authentication, "ROLE_MANAGER")) {
+        if (AuthorizationUtil.hasRole(authentication, "ROLE_MANAGER")) {
             return "redirect:/employee/lead/created-leads";
         }
         return "redirect:/employee/lead/assigned-leads";
@@ -229,38 +258,39 @@ public class LeadController {
 
         int userId = authenticationUtils.getLoggedInUserId(authentication);
         User loggedInUser = userService.findById(userId);
-        if(loggedInUser.isInactiveUser()) {
+        if (loggedInUser.isInactiveUser()) {
             return "error/account-inactive";
         }
 
         Lead lead = leadService.findByLeadId(id);
 
-        if(lead == null) {
+        if (lead == null) {
             return "error/not-found";
         }
 
         User employee = lead.getEmployee();
-        if(!AuthorizationUtil.checkIfUserAuthorized(employee,loggedInUser) && !AuthorizationUtil.hasRole(authentication,"ROLE_MANAGER")) {
+        if (!AuthorizationUtil.checkIfUserAuthorized(employee, loggedInUser)
+                && !AuthorizationUtil.hasRole(authentication, "ROLE_MANAGER")) {
             return "error/access-denied";
         }
 
         List<User> employees = new ArrayList<>();
         List<Customer> customers = new ArrayList<>();
 
-        if(AuthorizationUtil.hasRole(authentication, "ROLE_MANAGER")) {
+        if (AuthorizationUtil.hasRole(authentication, "ROLE_MANAGER")) {
             employees = userService.findAll();
             customers = customerService.findAll();
         } else {
             employees.add(loggedInUser);
-            //In case Employee's manager assign lead for the employee with a customer that's not created by this employee
-            //As a result of that the employee mustn't change the customer
-            if(!Objects.equals(employee.getId(), lead.getManager().getId())) {
+            // In case Employee's manager assign lead for the employee with a customer
+            // that's not created by this employee
+            // As a result of that the employee mustn't change the customer
+            if (!Objects.equals(employee.getId(), lead.getManager().getId())) {
                 customers.add(lead.getCustomer());
             } else {
                 customers = customerService.findByUserId(loggedInUser.getId());
             }
         }
-
 
         List<File> files = lead.getFiles();
 
@@ -278,13 +308,14 @@ public class LeadController {
             OAuthUser oAuthUser = authenticationUtils.getOAuthUserFromAuthentication(authentication);
             List<GoogleDriveFile> googleDriveFiles = lead.getGoogleDriveFiles();
             try {
-                hasGoogleDriveAccess = authenticationUtils.checkIfAppHasAccess(GoogleAccessService.SCOPE_DRIVE, oAuthUser);
+                hasGoogleDriveAccess = authenticationUtils.checkIfAppHasAccess(GoogleAccessService.SCOPE_DRIVE,
+                        oAuthUser);
                 if (hasGoogleDriveAccess) {
                     folders = googleDriveApiService.listFolders(oAuthUser);
                 }
 
                 // Check if the file got deleted using his Google Drive
-                fileUtil.updateFilesBasedOnGoogleDriveFiles(oAuthUser,googleDriveFiles,lead);
+                fileUtil.updateFilesBasedOnGoogleDriveFiles(oAuthUser, googleDriveFiles, lead);
 
             } catch (IOException | GeneralSecurityException e) {
                 throw new RuntimeException(e);
@@ -296,60 +327,64 @@ public class LeadController {
         model.addAttribute("customers", customers);
         model.addAttribute("attachments", attachments);
         model.addAttribute("folders", folders);
-        model.addAttribute("hasGoogleDriveAccess",hasGoogleDriveAccess);
+        model.addAttribute("hasGoogleDriveAccess", hasGoogleDriveAccess);
         return "lead/update-lead";
     }
 
     @PostMapping("/update")
-    public String updateLead(@ModelAttribute("lead") @Validated Lead lead, BindingResult bindingResult, @RequestParam("customerId") int customerId,
-                             @RequestParam("employeeId") int employeeId, Authentication authentication, Model model,
-                             @RequestParam("allFiles") @Nullable String files, @RequestParam("folderId") @Nullable String folderId) throws JsonProcessingException {
+    public String updateLead(@ModelAttribute("lead") @Validated Lead lead, BindingResult bindingResult,
+            @RequestParam("customerId") int customerId,
+            @RequestParam("employeeId") int employeeId, Authentication authentication, Model model,
+            @RequestParam("allFiles") @Nullable String files, @RequestParam("folderId") @Nullable String folderId)
+            throws JsonProcessingException {
 
         int userId = authenticationUtils.getLoggedInUserId(authentication);
         User loggedInUser = userService.findById(userId);
-        if(loggedInUser.isInactiveUser()) {
+        if (loggedInUser.isInactiveUser()) {
             return "error/account-inactive";
         }
         Lead currLead = leadService.findByLeadId(lead.getLeadId());
-        if(currLead == null) {
+        if (currLead == null) {
             return "error/500";
         }
 
         User manager = currLead.getManager();
         User employee = userService.findById(employeeId);
         Customer customer = customerService.findByCustomerId(customerId);
-        if(employee == null || manager == null || customer == null) {
+        if (employee == null || manager == null || customer == null) {
             return "error/500";
         }
 
-        //check in case the employee created a lead for him/her self,
+        // check in case the employee created a lead for him/her self,
         // they won't be able to assign lead for customer that isn't created themselves
-        if(manager.getId() == employeeId) {
+        if (manager.getId() == employeeId) {
             if (!AuthorizationUtil.hasRole(authentication, "ROLE_MANAGER") && customer.getUser().getId() != userId) {
                 return "error/500";
             }
         } else {
-            if(!AuthorizationUtil.hasRole(authentication, "ROLE_MANAGER") && currLead.getCustomer().getCustomerId() != customerId) {
+            if (!AuthorizationUtil.hasRole(authentication, "ROLE_MANAGER")
+                    && currLead.getCustomer().getCustomerId() != customerId) {
                 return "error/500";
             }
         }
 
-        if(AuthorizationUtil.hasRole(authentication, "ROLE_EMPLOYEE") && employee.getId() != userId) {
+        if (AuthorizationUtil.hasRole(authentication, "ROLE_EMPLOYEE") && employee.getId() != userId) {
             return "error/500";
         }
 
-        if(bindingResult.hasErrors()) {
+        if (bindingResult.hasErrors()) {
             List<User> employees = new ArrayList<>();
             List<Customer> customers = new ArrayList<>();
 
-            if(AuthorizationUtil.hasRole(authentication, "ROLE_MANAGER")) {
+            if (AuthorizationUtil.hasRole(authentication, "ROLE_MANAGER")) {
                 employees = userService.findAll();
                 customers = customerService.findAll();
             } else {
                 employees.add(loggedInUser);
-                //In case Employee's manager assign lead for the employee with a customer that's not created by this employee
-                //As a result of that the employee mustn't change the customer
-                if(!Objects.equals(employee.getId(), lead.getManager().getId())) {
+                // In case Employee's manager assign lead for the employee with a customer
+                // that's not created by this employee
+                // As a result of that the employee mustn't change the customer
+                if (!Objects.equals(employee.getId(), lead.getManager().getId())) {
                     customers.add(lead.getCustomer());
                 } else {
                     customers = customerService.findByUserId(loggedInUser.getId());
@@ -376,13 +411,14 @@ public class LeadController {
                 OAuthUser oAuthUser = authenticationUtils.getOAuthUserFromAuthentication(authentication);
                 List<GoogleDriveFile> googleDriveFiles = tempLead.getGoogleDriveFiles();
                 try {
-                    hasGoogleDriveAccess = authenticationUtils.checkIfAppHasAccess(GoogleAccessService.SCOPE_DRIVE, oAuthUser);
+                    hasGoogleDriveAccess = authenticationUtils.checkIfAppHasAccess(GoogleAccessService.SCOPE_DRIVE,
+                            oAuthUser);
                     if (hasGoogleDriveAccess) {
                         folders = googleDriveApiService.listFolders(oAuthUser);
                     }
 
                     // Check if the file got deleted using his Google Drive
-                    fileUtil.updateFilesBasedOnGoogleDriveFiles(oAuthUser,googleDriveFiles,tempLead);
+                    fileUtil.updateFilesBasedOnGoogleDriveFiles(oAuthUser, googleDriveFiles, tempLead);
 
                 } catch (IOException | GeneralSecurityException e) {
                     throw new RuntimeException(e);
@@ -392,16 +428,16 @@ public class LeadController {
             model.addAttribute("customers", customers);
             model.addAttribute("attachments", attachments);
             model.addAttribute("folders", folders);
-            model.addAttribute("hasGoogleDriveAccess",hasGoogleDriveAccess);
+            model.addAttribute("hasGoogleDriveAccess", hasGoogleDriveAccess);
             return "lead/update-lead";
         }
 
         Lead prevLead = leadService.findByLeadId(lead.getLeadId());
         Lead originalLead = new Lead();
-        BeanUtils.copyProperties(prevLead,originalLead);
+        BeanUtils.copyProperties(prevLead, originalLead);
         List<File> oldFiles = fileService.findByLeadId(lead.getLeadId());
         List<GoogleDriveFile> oldGoogleDriveFiles = new ArrayList<>();
-        if(googleDriveFileService != null) {
+        if (googleDriveFileService != null) {
             oldGoogleDriveFiles = googleDriveFileService.getAllDriveFileByLeadId(lead.getLeadId());
         }
 
@@ -419,7 +455,8 @@ public class LeadController {
             fileUtil.deleteGoogleDriveFiles(oldGoogleDriveFiles, authentication);
         }
         fileUtil.saveFiles(allFiles, lead);
-        if(!(authentication instanceof UsernamePasswordAuthenticationToken) && lead.getGoogleDrive() && googleDriveApiService != null) {
+        if (!(authentication instanceof UsernamePasswordAuthenticationToken) && lead.getGoogleDrive()
+                && googleDriveApiService != null) {
             OAuthUser oAuthUser = authenticationUtils.getOAuthUserFromAuthentication(authentication);
             try {
                 if (folderId != null && !folderId.isEmpty()) {
@@ -428,18 +465,19 @@ public class LeadController {
             } catch (IOException | GeneralSecurityException e) {
                 return "error/500";
             }
-            fileUtil.saveGoogleDriveFiles(authentication,allFiles,folderId,lead);
+            fileUtil.saveGoogleDriveFiles(authentication, allFiles, folderId, lead);
         }
         Lead CurrentLead = leadService.save(lead);
         saveLeadActions(lead, prevLead);
         List<String> properties = DatabaseUtil.getColumnNames(entityManager, Lead.class);
-        Map<String, Pair<String ,String>> changes = LogEntityChanges.trackChanges(originalLead,CurrentLead, properties);
+        Map<String, Pair<String, String>> changes = LogEntityChanges.trackChanges(originalLead, CurrentLead,
+                properties);
 
         boolean isGoogleUser = !(authentication instanceof UsernamePasswordAuthenticationToken);
 
-        if(isGoogleUser && googleGmailApiService != null) {
+        if (isGoogleUser && googleGmailApiService != null) {
             OAuthUser oAuthUser = authenticationUtils.getOAuthUserFromAuthentication(authentication);
-            if(oAuthUser.getGrantedScopes().contains(GoogleAccessService.SCOPE_GMAIL)) {
+            if (oAuthUser.getGrantedScopes().contains(GoogleAccessService.SCOPE_GMAIL)) {
                 try {
                     processEmailSettingsChanges(changes, userId, oAuthUser, customer);
                 } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
@@ -457,10 +495,10 @@ public class LeadController {
         User employee = lead.getEmployee();
         int userId = authenticationUtils.getLoggedInUserId(authentication);
         User loggedInUser = userService.findById(userId);
-        if(loggedInUser.isInactiveUser()) {
+        if (loggedInUser.isInactiveUser()) {
             return "error/account-inactive";
         }
-        if(!AuthorizationUtil.checkIfUserAuthorized(employee,loggedInUser)) {
+        if (!AuthorizationUtil.checkIfUserAuthorized(employee, loggedInUser)) {
             return "error/access-denied";
         }
 
@@ -476,10 +514,11 @@ public class LeadController {
 
     @PostMapping("/drive/ajax-create")
     @ResponseBody
-    public ResponseEntity<Map<String, String>> createGoogleDriveFolder(Authentication authentication, @RequestParam("folderName") String folderName) {
+    public ResponseEntity<Map<String, String>> createGoogleDriveFolder(Authentication authentication,
+            @RequestParam("folderName") String folderName) {
         OAuthUser oAuthUser = authenticationUtils.getOAuthUserFromAuthentication(authentication);
         String folderId = null;
-        if(googleDriveApiService != null) {
+        if (googleDriveApiService != null) {
             try {
                 folderId = googleDriveApiService.createFolder(oAuthUser, folderName);
             } catch (IOException | GeneralSecurityException e) {
@@ -495,16 +534,20 @@ public class LeadController {
     private StringBuilder getChanges(Lead prevLead, Lead lead) {
         StringBuilder changes = new StringBuilder();
         if (!prevLead.getName().equals(lead.getName())) {
-            changes.append("The lead's name changes from ").append(prevLead.getName()).append(" To ").append(lead.getName()).append('.');
+            changes.append("The lead's name changes from ").append(prevLead.getName()).append(" To ")
+                    .append(lead.getName()).append('.');
         }
         if (!prevLead.getPhone().equals(lead.getPhone())) {
-            changes.append("The lead's phone changes from ").append(prevLead.getPhone()).append(" To ").append(lead.getPhone()).append('.');
+            changes.append("The lead's phone changes from ").append(prevLead.getPhone()).append(" To ")
+                    .append(lead.getPhone()).append('.');
         }
         if (!prevLead.getEmployee().equals(lead.getEmployee())) {
-            changes.append("The lead's employee changes from ").append(prevLead.getEmployee().getUsername()).append(" To ").append(lead.getEmployee().getUsername()).append('.');
+            changes.append("The lead's employee changes from ").append(prevLead.getEmployee().getUsername())
+                    .append(" To ").append(lead.getEmployee().getUsername()).append('.');
         }
         if (!prevLead.getCustomer().equals(lead.getCustomer())) {
-            changes.append("The lead's customer changes from ").append(prevLead.getCustomer().getName()).append(" To ").append(lead.getCustomer().getName()).append('.');
+            changes.append("The lead's customer changes from ").append(prevLead.getCustomer().getName()).append(" To ")
+                    .append(lead.getCustomer().getName()).append('.');
         }
         return changes;
     }
@@ -524,7 +567,7 @@ public class LeadController {
     }
 
     public void processEmailSettingsChanges(Map<String, Pair<String, String>> changes, int userId, OAuthUser oAuthUser,
-                                            Customer customer) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
+            Customer customer) throws NoSuchMethodException, IllegalAccessException, InvocationTargetException {
         for (Map.Entry<String, Pair<String, String>> entry : changes.entrySet()) {
             String property = entry.getKey();
             String propertyName = StringUtils.replaceCharToCamelCase(property, '_');
@@ -536,7 +579,8 @@ public class LeadController {
             LeadEmailSettings leadEmailSettings = leadEmailSettingsService.findByUserId(userId);
 
             CustomerLoginInfo customerLoginInfo = customer.getCustomerLoginInfo();
-            LeadEmailSettings customerLeadEmailSettings = leadEmailSettingsService.findByCustomerId(customerLoginInfo.getId());
+            LeadEmailSettings customerLeadEmailSettings = leadEmailSettingsService
+                    .findByCustomerId(customerLoginInfo.getId());
 
             if (leadEmailSettings != null) {
                 String getterMethodName = "get" + StringUtils.capitalizeFirstLetter(propertyName);
@@ -544,12 +588,14 @@ public class LeadController {
                 Boolean propertyValue = (Boolean) getterMethod.invoke(leadEmailSettings);
 
                 Boolean isCustomerLikeToGetNotified = true;
-                if(customerLeadEmailSettings != null) {
+                if (customerLeadEmailSettings != null) {
                     isCustomerLikeToGetNotified = (Boolean) getterMethod.invoke(customerLeadEmailSettings);
                 }
 
-                if (isCustomerLikeToGetNotified != null && propertyValue != null && propertyValue && isCustomerLikeToGetNotified) {
-                    String emailTemplateGetterMethodName = "get" + StringUtils.capitalizeFirstLetter(propertyName) + "EmailTemplate";
+                if (isCustomerLikeToGetNotified != null && propertyValue != null && propertyValue
+                        && isCustomerLikeToGetNotified) {
+                    String emailTemplateGetterMethodName = "get" + StringUtils.capitalizeFirstLetter(propertyName)
+                            + "EmailTemplate";
                     Method emailTemplateGetterMethod = LeadEmailSettings.class.getMethod(emailTemplateGetterMethodName);
                     EmailTemplate emailTemplate = (EmailTemplate) emailTemplateGetterMethod.invoke(leadEmailSettings);
                     String body = emailTemplate.getContent();
@@ -584,7 +630,7 @@ public class LeadController {
 
         List<Attachment> attachments = new ArrayList<>();
 
-        if(AuthorizationUtil.hasRole(authentication, "ROLE_MANAGER")) {
+        if (AuthorizationUtil.hasRole(authentication, "ROLE_MANAGER")) {
             employees = userService.findAll();
             customers = customerService.findAll();
         } else {
@@ -597,7 +643,8 @@ public class LeadController {
         if (!(authentication instanceof UsernamePasswordAuthenticationToken) && googleDriveApiService != null) {
             OAuthUser oAuthUser = authenticationUtils.getOAuthUserFromAuthentication(authentication);
             try {
-                hasGoogleDriveAccess = authenticationUtils.checkIfAppHasAccess(GoogleAccessService.SCOPE_DRIVE, oAuthUser);
+                hasGoogleDriveAccess = authenticationUtils.checkIfAppHasAccess(GoogleAccessService.SCOPE_DRIVE,
+                        oAuthUser);
                 if (hasGoogleDriveAccess) {
                     folders = googleDriveApiService.listFolders(oAuthUser);
                 }
