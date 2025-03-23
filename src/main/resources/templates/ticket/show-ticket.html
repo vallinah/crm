@@ -96,6 +96,31 @@
                             </div>
                             <hr>
                             <p class="m-t-30" th:utext="${ticket.description}"></p>
+
+                            <!-- Section pour afficher la dépense -->
+                            <div class="row m-t-30">
+                                <div class="col-md-12">
+                                    <h4 class="card-title">Expense Details</h4>
+                                    <div class="row">
+                                        <div class="col-md-4 col-xs-6">
+                                            <strong>Latest Expense</strong>
+                                            <br>
+                                            <p class="text-muted" th:text="${ticketExpense != null ? ticketExpense.amount : 'No expense recorded'}"></p>
+                                        </div>
+                                        <div class="col-md-4 col-xs-6">
+                                            <strong>Expense Date</strong>
+                                            <br>
+                                            <p class="text-muted" th:text="${ticketExpense != null ? ticketExpense.createdAt : 'N/A'}"></p>
+                                        </div>
+                                        <div class="col-md-4 col-xs-6">
+                                            <!-- Bouton pour modifier la dépense -->
+                                            <a th:href="${home + 'employee/ticket/update-ticketExpense/' + ticket.ticketId}" class="btn btn-primary">
+                                                <i class="fas fa-coins"></i> Update Expense
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
