@@ -20,6 +20,11 @@ public class DatabaseController {
         return "database/reset-database";
     }
 
+    @GetMapping("/import-csv")
+    public String importPage() {
+        return "database/import-csv";
+    }
+
     @PostMapping("/reset-database")
     public String resetDatabase(RedirectAttributes redirectAttributes) {
         databaseService.resetDatabase();

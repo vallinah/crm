@@ -159,10 +159,11 @@
                 <li>
                     <a class="has-arrow waves-effect waves-dark" href="javascript:void(0)">
                         <i class="fas fa-envelope"></i>
-                        <span class="hide-menu">Reinitialisation</span>
+                        <span class="hide-menu">Donnees</span>
                     </a>
                     <ul class="collapse">
                         <li><a th:if="${#authorization.expression('hasRole(''ROLE_MANAGER'')')}" th:href="${home + 'database/reset-database'}">Reinitialiser les donnees</a></li>
+                        <li><a th:if="${#authorization.expression('hasRole(''ROLE_MANAGER'')')}" th:href="${home + 'database/import-csv'}">Importer csv</a></li>
                     </ul>
                 </li>
             </ul>
@@ -218,6 +219,18 @@
                     <a class="waves-effect waves-dark" th:href="${home + 'customer/my-contracts'}">
                         <i class="fas fa-file-contract"></i>
                         <span class="hide-menu">My Contracts</span>
+                    </a>
+                </li>
+
+                <li class="nav-small-cap">--- Budget</li>
+                <li>
+                    <a class="waves-effect waves-dark" th:href="${home + 'customer/budget/create'}">
+                        <i class="fas fa-file-contract"></i>
+                        <span class="hide-menu">Add budget</span>
+                    </a>
+                    <a class="waves-effect waves-dark" th:href="${home + 'customer/budget/my-budgets'}">
+                        <i class="fas fa-file-contract"></i>
+                        <span class="hide-menu">My budgets</span>
                     </a>
                 </li>
             </ul>
