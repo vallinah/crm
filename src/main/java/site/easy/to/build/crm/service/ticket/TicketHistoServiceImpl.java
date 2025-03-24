@@ -1,13 +1,15 @@
 package site.easy.to.build.crm.service.ticket;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 import org.springframework.stereotype.Service;
+
 import site.easy.to.build.crm.entity.TicketHisto;
 import site.easy.to.build.crm.repository.TicketHistoRepository;
 
-import java.util.List;
-
 @Service
-public class TicketHistoServiceImpl implements TicketHistoService{
+public class TicketHistoServiceImpl implements TicketHistoService {
     private final TicketHistoRepository ticketHistoRepository;
 
     public TicketHistoServiceImpl(TicketHistoRepository ticketHistoRepository) {
@@ -15,16 +17,23 @@ public class TicketHistoServiceImpl implements TicketHistoService{
     }
 
     @Override
-    public TicketHisto save(TicketHisto ticketHisto){
-        return  ticketHistoRepository.save(ticketHisto);
+    public TicketHisto save(TicketHisto ticketHisto) {
+        return ticketHistoRepository.save(ticketHisto);
     }
 
     @Override
-    public List<TicketHisto> findAll(){
+    public List<TicketHisto> findAll() {
         return ticketHistoRepository.findAll();
     }
 
     @Override
-    public TicketHisto findByTicketHistoId(int id){return ticketHistoRepository.findById(id);};
+    public TicketHisto findByTicketHistoId(int id) {
+        return ticketHistoRepository.findById(id);
+    };
+
+    @Override
+    public List<TicketHisto> getBetweenDate(LocalDateTime date1, LocalDateTime date2) {
+        return ticketHistoRepository.getBetweenDate(date1, date2);
+    }
 
 }
