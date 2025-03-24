@@ -1,62 +1,103 @@
 package site.easy.to.build.crm.entity;
 
-import jakarta.persistence.*;
-
-import java.time.LocalDate;
 import java.time.LocalDateTime;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "trigger_lead_histo")
 public class TriggerLeadHisto {
 
     @Id
-    // @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private Integer id;
 
-    @Column(name = "name", nullable = false)
+    @ManyToOne
+    @JoinColumn(name = "customer_id", nullable = false)
+    private Customer customer;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
+
+    @Column(name = "name", length = 255)
     private String name;
 
-    @Column(name = "phone", nullable = false)
+    @Column(name = "phone", length = 20)
     private String phone;
 
-    @Column(name = "status", nullable = false)
+    @ManyToOne
+    @JoinColumn(name = "employee_id")
+    private User employee;
+
+    @Column(name = "status", length = 50)
     private String status;
 
-    @Column(name = "meeting_id", nullable = false, unique = true)
+    @Column(name = "meeting_id", length = 255, unique = true)
     private String meetingId;
 
     @Column(name = "google_drive")
     private Boolean googleDrive;
 
-    @Column(name = "google_drive_folder_id")
+    @Column(name = "google_drive_folder_id", length = 255)
     private String googleDriveFolderId;
+
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
 
     @Column(name = "delete_at")
     private LocalDateTime deleteAt;
 
+    // Constructeur par défaut (obligatoire pour JPA)
     public TriggerLeadHisto() {
     }
 
-    public TriggerLeadHisto(Integer id, String name, String phone, String status,
-            String meetingId, Boolean googleDrive,
-            String googleDriveFolderId) {
+    // Constructeur avec tous les champs (optionnel)
+    public TriggerLeadHisto(Integer id, Customer customer, User user, String name, String phone, User employee,
+            String status, String meetingId, Boolean googleDrive, String googleDriveFolderId,
+            LocalDateTime createAt, LocalDateTime deleteAt) {
         this.id = id;
+        this.customer = customer;
+        this.user = user;
         this.name = name;
         this.phone = phone;
+        this.employee = employee;
         this.status = status;
         this.meetingId = meetingId;
         this.googleDrive = googleDrive;
         this.googleDriveFolderId = googleDriveFolderId;
+        this.createdAt = createAt;
+        this.deleteAt = deleteAt;
     }
 
-    // Getters et Setters
+    // Getters et setters pour chaque champ
     public Integer getId() {
         return id;
     }
 
     public void setId(Integer id) {
         this.id = id;
+    }
+
+    public Customer getCustomer() {
+        return customer;
+    }
+
+    public void setCustomer(Customer customer) {
+        this.customer = customer;
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 
     public String getName() {
@@ -73,6 +114,14 @@ public class TriggerLeadHisto {
 
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    public User getEmployee() {
+        return employee;
+    }
+
+    public void setEmployee(User employee) {
+        this.employee = employee;
     }
 
     public String getStatus() {
@@ -113,5 +162,13 @@ public class TriggerLeadHisto {
 
     public void setDeleteAt(LocalDateTime deleteAt) {
         this.deleteAt = deleteAt;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 }

@@ -546,26 +546,45 @@ CREATE TABLE IF NOT EXISTS `ticket_expense` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
--- Table trigger_lead_histo
 CREATE TABLE IF NOT EXISTS `trigger_lead_histo` (
-    `id` INT,
-    `name` VARCHAR(255),
-    `phone` VARCHAR(20),
-    `status` VARCHAR(50),
-    `meeting_id` VARCHAR(255),
-    `google_drive` TINYINT(1),
-    `google_drive_folder_id` VARCHAR(255),
+    `id` INT NOT NULL,
+    `customer_id` int unsigned NOT NULL,
+    `user_id` int DEFAULT NULL,
+    `name` varchar(255) DEFAULT NULL,
+    `phone` varchar(20) DEFAULT NULL,
+    `employee_id` int DEFAULT NULL,
+    `status` varchar(50) DEFAULT NULL,
+    `meeting_id` varchar(255) DEFAULT NULL,
+    `google_drive` tinyint(1) DEFAULT NULL,
+    `google_drive_folder_id` varchar(255) DEFAULT NULL,
+    `created_at` datetime DEFAULT NULL,  -- Correction ici : backticks et virgule ajoutés
     `delete_at` datetime DEFAULT NULL,
-    PRIMARY KEY (`id`), -- Utilisez `id` comme clé primaire
-    UNIQUE (`meeting_id`)
-);
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `meeting_info` (`meeting_id`),
+    KEY `customer_id` (`customer_id`),
+    KEY `user_id` (`user_id`),
+    KEY `employee_id` (`employee_id`),
+    CONSTRAINT `trigger_lead_histo_ibfk_1` FOREIGN KEY (`customer_id`) REFERENCES `customer` (`customer_id`),
+    CONSTRAINT `trigger_lead_histo_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
+    CONSTRAINT `trigger_lead_histo_ibfk_3` FOREIGN KEY (`employee_id`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- Table lead_expense
 CREATE TABLE IF NOT EXISTS `lead_expense` (
-    `id` INT AUTO_INCREMENT,
+    `id` INT AUTO_INCREMENT,  -- `id` est auto-incrémenté
     `amount` DECIMAL(18, 2) NOT NULL,
     `created_at` datetime DEFAULT NULL,
-    `trigger_lead_histo_id` INT NOT NULL, -- Renommez pour plus de clarté
+    `trigger_lead_histo_id` INT NOT NULL,  -- Référence à `trigger_lead_histo`
     PRIMARY KEY (`id`),
     FOREIGN KEY (`trigger_lead_histo_id`) REFERENCES `trigger_lead_histo`(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE IF NOT EXISTS rate_config(
+   id INT AUTO_INCREMENT,
+   rate DECIMAL(15,2)   NOT NULL,
+   created_at DATE NOT NULL,
+   PRIMARY KEY(id)
 );
+
+INSERT INTO rate_config (rate, created_at) VALUES
+(80.00, '2023-10-01');
