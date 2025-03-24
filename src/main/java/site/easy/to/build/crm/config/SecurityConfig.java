@@ -167,7 +167,7 @@ public class SecurityConfig {
                                 .sessionManagement(session -> session
                                                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                                 .authorizeHttpRequests(auth -> auth
-                                                .requestMatchers("/api/login").permitAll()
+                                                .requestMatchers("/api/**").permitAll()
                                                 .anyRequest().authenticated())
                                 .formLogin(AbstractHttpConfigurer::disable) // Désactive le formulaire HTML
                                 .httpBasic(AbstractHttpConfigurer::disable) // Désactive l’auth basic

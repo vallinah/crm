@@ -14,7 +14,7 @@ import site.easy.to.build.crm.service.user.UserService;
 @RestController
 @RequestMapping("/api/user")
 @AllArgsConstructor
-public class UserController {
+public class UserRestController {
     private UserService userService;
 
     @GetMapping("/login")
