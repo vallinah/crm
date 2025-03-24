@@ -78,6 +78,10 @@
                     <div class="card">
                         <div class="row">
                             <div class="card-body">
+                                <!-- Message d'alerte si le taux d'alerte est dépassé -->
+                                <div th:if="${alertMessage != null}" class="alert alert-warning" role="alert">
+                                    <span th:text="${alertMessage}"></span>
+                                </div>
                                 <form th:action="@{/employee/calendar/create-event}" th:object="${eventDisplay}" method="post">
 
                                     <label class="m-t-20" for="summary">Summary:</label>

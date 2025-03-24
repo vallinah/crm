@@ -65,11 +65,28 @@
             <!-- ============================================================== -->
             <!-- Start Page Content -->
             <!-- ============================================================== -->
-            <div class="row">
+            <!-- <div class="row">
                 <div class="col-lg-12">
                     <div class="card">
                         <div class="card-body">
                             <h4 class="card-title">Create New Ticket</h4>
+                            <div th:if="${requireConfirmation}" class="alert alert-danger" role="alert">
+                                <p>Les dépenses ont dépassé le budget total. Confirmez-vous la création du ticket ?</p>
+                                <form th:action="@{/employee/ticket/create-ticket}" method="post">
+                                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                    <input type="hidden" th:field="*{ticket}"/>
+                                    <input type="hidden" name="customerId" th:value="${customerId}"/>
+                                    <input type="hidden" name="expense_ticket" th:value="${expense_ticket}"/>
+                                    <input type="hidden" name="employeeId" th:value="${employeeId}"/>
+                                    <input type="hidden" name="confirm" value="true"/>
+                                    <button type="submit" class="btn btn-danger">Confirmer</button>
+                                    <a href="/employee/ticket/create-ticket" class="btn btn-secondary">Annuler</a>
+                                </form>
+                            </div>
+
+                            <div th:if="${alertMessage}" class="alert alert-warning" role="alert">
+                                <span th:text="${alertMessage}"></span>
+                            </div>
                             <form th:object="${ticket}" th:action="@{/employee/ticket/create-ticket}" method="post">
 
                                 <label class="m-t-20" for="subject">Subject:</label>
@@ -142,6 +159,121 @@
                                 </div>
 
                                 <button type="submit" class="btn btn-primary m-t-20">Create ticket</button>
+                            </form>
+                            
+                        </div>
+                    </div>
+                </div>
+            </div> -->
+            <div class="row">
+                <div class="col-lg-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h4 class="card-title">Create New Ticket</h4>
+                            
+                            <!-- Message de confirmation si le budget est dépassé -->
+                            <div th:if="${requireConfirmation != null and requireConfirmation}" class="alert alert-danger" role="alert">
+                                <p>Les dépenses ont dépassé le budget total. Confirmez-vous la création du ticket ?</p>
+                            </div>
+            
+                            <!-- Message d'alerte si le taux d'alerte est dépassé -->
+                            <div th:if="${alertMessage != null}" class="alert alert-warning" role="alert">
+                                <span th:text="${alertMessage}"></span>
+                            </div>
+            
+                            <!-- Formulaire principal -->
+                            <form th:object="${ticket}" th:action="@{/employee/ticket/create-ticket}" method="post">
+                                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                                <input type="hidden" name="confirm" th:value="${requireConfirmation != null and requireConfirmation ? 'true' : 'false'}"/>
+                            
+                                <!-- Champ : Sujet -->
+                                <label class="m-t-20" for="subject">Subject:</label>
+                                <div class="input-group">
+                                    <input type="text" id="subject" th:field="*{subject}" class="form-control">
+                                </div>
+                                <div class="input-group">
+                                    <span class="text-danger font-weight-bold" th:if="${#fields.hasErrors('subject')}" th:errors="*{subject}"></span>
+                                </div>
+                            
+                                <!-- Champ : Description -->
+                                <label class="m-t-20" for="description">Description:</label>
+                                <div class="input-group">
+                                    <textarea class="textarea_editor form-control" id="description" rows="15" placeholder="Enter text ..." th:field="*{description}"></textarea>
+                                </div>
+                                <div class="input-group">
+                                    <span class="text-danger font-weight-bold" th:if="${#fields.hasErrors('description')}" th:errors="*{description}" autocomplete="off"></span>
+                                </div>
+                            
+                                <!-- Champ : Statut -->
+                                <label class="m-t-20" for="status">Status:</label>
+                                <div class="input-group">
+                                    <select id="status" th:field="*{status}" class="form-control">
+                                        <option value="open">Open</option>
+                                        <option value="assigned">Assigned</option>
+                                        <option value="on-hold">On Hold</option>
+                                        <option value="in-progress">In Progress</option>
+                                        <option value="resolved">Resolved</option>
+                                        <option value="closed">Closed</option>
+                                        <option value="reopened">Reopened</option>
+                                        <option value="pending-customer-response">Pending Customer Response</option>
+                                        <option value="escalated">Escalated</option>
+                                        <option value="archived">Archived</option>
+                                    </select>
+                                </div>
+                                <div class="input-group">
+                                    <span class="text-danger font-weight-bold" th:if="${#fields.hasErrors('status')}" th:errors="*{status}"></span>
+                                </div>
+                            
+                                <!-- Champ : Priorité -->
+                                <label class="m-t-20" for="priority">Priority:</label>
+                                <div class="input-group">
+                                    <select id="priority" th:field="*{priority}" class="form-control">
+                                        <option value="low">Low</option>
+                                        <option value="medium">Medium</option>
+                                        <option value="high">High</option>
+                                        <option value="closed">Closed</option>
+                                        <option value="urgent">Urgent</option>
+                                        <option value="critical">Critical</option>
+                                    </select>
+                                </div>
+                                <div class="input-group">
+                                    <span class="text-danger font-weight-bold" th:if="${#fields.hasErrors('priority')}" th:errors="*{priority}"></span>
+                                </div>
+                            
+                                <!-- Champ : Employé assigné -->
+                                <label class="m-t-20" for="employeeId">Assign Employee:</label>
+                                <div class="input-group">
+                                    <select name="employeeId" id="employeeId" class="form-control">
+                                        <option th:each="employee : ${employees}" 
+                                                th:text="${employee.username}" 
+                                                th:value="${employee.id}"
+                                                th:selected="${employeeId != null && employeeId == employee.id}"></option>
+                                    </select>
+                                </div>
+                            
+                                <!-- Champ : Client -->
+                                <label class="m-t-20" for="customerId">Customer:</label>
+                                <div class="input-group">
+                                    <select name="customerId" id="customerId" class="form-control">
+                                        <option th:each="customer : ${customers}" 
+                                                th:text="${customer.name}" 
+                                                th:value="${customer.customerId}"
+                                                th:selected="${customerId != null && customerId == customer.customerId}"></option>
+                                    </select>
+                                </div>
+                            
+                                <!-- Champ : Dépense -->
+                                <label class="m-t-20" for="expenses">Expense:</label>
+                                <div class="input-group">
+                                    <input type="number" id="expenses" name="expense_ticket" class="form-control" step="0.01" min="0"
+                                           th:value="${expense_ticket != null ? expense_ticket : ''}">
+                                </div>
+                            
+                                <!-- Bouton de soumission -->
+                                <button type="submit" class="btn btn-primary m-t-20">
+                                    <span th:if="${requireConfirmation != null and requireConfirmation}">Confirmer la création</span>
+                                    <span th:unless="${requireConfirmation != null and requireConfirmation}">Créer le ticket</span>
+                                </button>
                             </form>
                         </div>
                     </div>
