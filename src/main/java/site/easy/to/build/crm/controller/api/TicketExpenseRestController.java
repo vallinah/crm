@@ -49,11 +49,7 @@ public class TicketExpenseRestController {
     @PutMapping("/modif/{id}")
     public ResponseEntity<TicketExpense> update(@PathVariable int id,
             @Valid @RequestBody TicketExpense updatedTicketExpense) {
-        TicketExpense existingTicketExpense = ticketExpenseService.getLatestExpenseForTicketHisto(id);
-
-        if (existingTicketExpense == null) {
-            return ResponseEntity.notFound().build(); // 404 Not Found
-        }
+        TicketExpense existingTicketExpense = new TicketExpense();
 
         existingTicketExpense.setAmount(updatedTicketExpense.getAmount());
         existingTicketExpense.setCreatedAt(updatedTicketExpense.getCreatedAt());
