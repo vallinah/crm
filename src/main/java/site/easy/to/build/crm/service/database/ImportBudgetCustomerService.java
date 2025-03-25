@@ -23,6 +23,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 @Service
 public class ImportBudgetCustomerService {
@@ -40,35 +41,107 @@ public class ImportBudgetCustomerService {
         this.customerService = customerService;
     }
 
+    // @Transactional
+    // public List<ImportBudgetCustomer> checkCsv(MultipartFile file) throws
+    // Exception {
+    // List<ImportBudgetCustomer> importBudgetCustomers = new ArrayList<>();
+    // List<String> errorLines = new ArrayList<>();
+
+    // // Lire le fichier CSV
+    // BufferedReader reader = new BufferedReader(
+    // new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
+    // CSVParser csvParser = new CSVParser(reader,
+    // CSVFormat.DEFAULT.withFirstRecordAsHeader());
+
+    // // verification des donee
+    // int lineNumber = 1;
+    // for (CSVRecord record : csvParser) {
+    // try {
+    // ImportBudgetCustomer importBudgetCustomer = new ImportBudgetCustomer();
+    // importBudgetCustomer.setCustomerEmail(record.get("customer_email"));
+    // importBudgetCustomer.setAmount(parseAmount(record.get("Budget"))); //
+    // Utilisation de BigDecimal
+    // importBudgetCustomers.add(importBudgetCustomer);
+    // } catch (Exception e) {
+    // errorLines.add("Ligne " + lineNumber + " : " + e.getMessage());
+    // }
+    // lineNumber++;
+    // }
+
+    // // Si des erreurs sont survenues, les lister et les envoyer
+    // if (!errorLines.isEmpty()) {
+    // throw new Exception("Import failed at : " + errorLines);
+    // }
+    // return importBudgetCustomers;
+    // }
+
     @Transactional
     public List<ImportBudgetCustomer> checkCsv(MultipartFile file) throws Exception {
         List<ImportBudgetCustomer> importBudgetCustomers = new ArrayList<>();
         List<String> errorLines = new ArrayList<>();
 
-        // Lire le fichier CSV
         BufferedReader reader = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
         CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader());
 
-        // verification des donee
         int lineNumber = 1;
         for (CSVRecord record : csvParser) {
+            List<String> lineErrors = new ArrayList<>();
+            ImportBudgetCustomer importBudgetCustomer = new ImportBudgetCustomer();
+
+            // Vérification de l'email
             try {
-                ImportBudgetCustomer importBudgetCustomer = new ImportBudgetCustomer();
-                importBudgetCustomer.setCustomerEmail(record.get("customer_email"));
-                importBudgetCustomer.setAmount(parseAmount(record.get("Budget"))); // Utilisation de BigDecimal
-                importBudgetCustomers.add(importBudgetCustomer);
+                String email = record.get("customer_email");
+                if (email == null || email.trim().isEmpty()) {
+                    lineErrors.add("Email client manquant");
+                } else if (!isValidEmail(email)) {
+                    lineErrors.add("Format email client invalide");
+                } else {
+                    importBudgetCustomer.setCustomerEmail(email.trim());
+                }
             } catch (Exception e) {
-                errorLines.add("Ligne " + lineNumber + " : " + e.getMessage());
+                lineErrors.add("Erreur de lecture de l'email client");
             }
+
+            // Vérification du budget
+            try {
+                String amountStr = record.get("Budget");
+                if (amountStr == null || amountStr.trim().isEmpty()) {
+                    lineErrors.add("Montant budget manquant");
+                } else {
+                    importBudgetCustomer.setAmount(parseAmount(amountStr));
+                }
+            } catch (Exception e) {
+                lineErrors.add("Format montant budget invalide: " + e.getMessage());
+            }
+
+            // Si aucune erreur sur cette ligne, ajouter à la liste
+            if (lineErrors.isEmpty()) {
+                importBudgetCustomers.add(importBudgetCustomer);
+            } else {
+                errorLines.add("Ligne " + lineNumber + " : " + String.join(", ", lineErrors));
+            }
+
             lineNumber++;
         }
 
-        // Si des erreurs sont survenues, les lister et les envoyer
         if (!errorLines.isEmpty()) {
-            throw new Exception("Import failed at : " + errorLines);
+            throw new Exception("Échec de l'import : \n" + String.join("\n", errorLines));
         }
         return importBudgetCustomers;
+    }
+
+    // Méthode pour valider le format d'email
+    private boolean isValidEmail(String email) {
+        if (email == null)
+            return false;
+
+        // Expression régulière simple pour validation d'email
+        String emailRegex = "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@" +
+                "(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$";
+
+        Pattern pattern = Pattern.compile(emailRegex);
+        return pattern.matcher(email.trim()).matches();
     }
 
     public void importCsv(List<ImportBudgetCustomer> importBudgetCustomers) throws Exception {
