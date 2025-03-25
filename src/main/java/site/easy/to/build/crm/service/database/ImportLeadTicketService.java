@@ -60,6 +60,7 @@ public class ImportLeadTicketService {
     // public List<ImportLeadTicket> checkCsv(MultipartFile file) throws Exception {
     // List<ImportLeadTicket> importLeadTickets = new ArrayList<>();
     // List<String> errorLines = new ArrayList<>();
+    // Set<String> existingEmails = new HashSet<>();
 
     // BufferedReader reader = new BufferedReader(
     // new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
@@ -68,58 +69,146 @@ public class ImportLeadTicketService {
 
     // int lineNumber = 1;
     // for (CSVRecord record : csvParser) {
-    // try {
+    // List<String> lineErrors = new ArrayList<>();
     // ImportLeadTicket importLeadTicket = new ImportLeadTicket();
-    // importLeadTicket.setCustomerEmail(record.get("customer_email"));
-    // importLeadTicket.setSubjectOrName(record.get("subject_or_name"));
-    // importLeadTicket.setType(record.get("type"));
-    // importLeadTicket.setStatus(record.get("status"));
-    // importLeadTicket.setAmount(parseAmount(record.get("expense"))); //
-    // Utilisation de BigDecimal
-    // importLeadTickets.add(importLeadTicket);
+
+    // // Validation de l'email
+    // try {
+    // String email = record.get("customer_email");
+    // if (email == null || email.trim().isEmpty()) {
+    // lineErrors.add("Email client manquant");
+    // } else if (!isValidEmail(email)) {
+    // lineErrors.add("Format email client invalide");
+    // } else {
+    // email = email.trim();
+    // importLeadTicket.setCustomerEmail(email);
+
+    // // Vérification que le customer existe
+    // if (customerService.findByEmail(email) == null) {
+    // lineErrors.add("Aucun client trouvé avec cet email");
+    // }
+    // }
     // } catch (Exception e) {
-    // errorLines.add("Ligne " + lineNumber + " : " + e.getMessage());
+    // lineErrors.add("Erreur de lecture de l'email client");
+    // }
+
+    // // Validation du sujet/nom
+    // try {
+    // String subjectOrName = record.get("subject_or_name");
+    // if (subjectOrName == null || subjectOrName.trim().isEmpty()) {
+    // lineErrors.add("Sujet/Nom manquant");
+    // } else if (subjectOrName.length() > 255) {
+    // lineErrors.add("Sujet/Nom trop long (max 255 caractères)");
+    // } else {
+    // importLeadTicket.setSubjectOrName(subjectOrName.trim());
+    // }
+    // } catch (Exception e) {
+    // lineErrors.add("Erreur de lecture du sujet/nom");
+    // }
+
+    // // Validation du type
+    // try {
+    // String type = record.get("type");
+    // if (type == null || type.trim().isEmpty()) {
+    // lineErrors.add("Type manquant");
+    // } else if (!type.equalsIgnoreCase("lead") &&
+    // !type.equalsIgnoreCase("ticket")) {
+    // lineErrors.add("Type invalide (doit être 'lead' ou 'ticket')");
+    // } else {
+    // importLeadTicket.setType(type.trim().toLowerCase());
+    // }
+    // } catch (Exception e) {
+    // lineErrors.add("Erreur de lecture du type");
+    // }
+
+    // // Validation du statut
+    // try {
+    // String status = record.get("status");
+    // if (status == null || status.trim().isEmpty()) {
+    // lineErrors.add("Statut manquant");
+    // } else if (status.length() > 50) {
+    // lineErrors.add("Statut trop long (max 50 caractères)");
+    // } else {
+    // importLeadTicket.setStatus(status.trim());
+    // }
+    // } catch (Exception e) {
+    // lineErrors.add("Erreur de lecture du statut");
+    // }
+
+    // // Validation du montant
+    // try {
+    // String amountStr = record.get("expense");
+    // if (amountStr == null || amountStr.trim().isEmpty()) {
+    // lineErrors.add("Montant manquant");
+    // } else {
+    // BigDecimal amount = parseAmount(amountStr);
+    // if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+    // lineErrors.add("Le montant doit être positif");
+    // } else {
+    // importLeadTicket.setAmount(amount);
+    // }
+    // }
+    // } catch (Exception e) {
+    // lineErrors.add("Erreur de montant: " + e.getMessage());
+    // }
+
+    // if (lineErrors.isEmpty()) {
+    // importLeadTickets.add(importLeadTicket);
+    // } else {
+    // errorLines.add("Ligne " + lineNumber + " : " + String.join(", ",
+    // lineErrors));
     // }
     // lineNumber++;
     // }
 
     // if (!errorLines.isEmpty()) {
-    // throw new Exception("Import failed at : " + errorLines);
+    // throw new Exception("Échec de l'import : \n" + String.join("\n",
+    // errorLines));
     // }
     // return importLeadTickets;
     // }
 
     @Transactional
-    public List<ImportLeadTicket> checkCsv(MultipartFile file) throws Exception {
+    public List<ImportLeadTicket> checkCsv(MultipartFile file, List<ImportCustomer> importCustomers) throws Exception {
         List<ImportLeadTicket> importLeadTickets = new ArrayList<>();
         List<String> errorLines = new ArrayList<>();
-        Set<String> existingEmails = new HashSet<>();
 
-        BufferedReader reader = new BufferedReader(
+        // Créer un set des emails valides (base + fichier customer)
+        Set<String> validEmails = new HashSet<>();
+
+        // Ajouter les emails existants en base
+        customerService.findAll().forEach(c -> validEmails.add(c.getEmail().trim().toLowerCase()));
+
+        // Ajouter les emails du fichier customer à importer
+        if (importCustomers != null) {
+            importCustomers.forEach(c -> validEmails.add(c.getCustomerEmail().trim().toLowerCase()));
+        }
+
+        try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
-        CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader());
+                CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader())) {
 
-        int lineNumber = 1;
-        for (CSVRecord record : csvParser) {
-            List<String> lineErrors = new ArrayList<>();
-            ImportLeadTicket importLeadTicket = new ImportLeadTicket();
+            int lineNumber = 1;
+            for (CSVRecord record : csvParser) {
+                List<String> lineErrors = new ArrayList<>();
+                ImportLeadTicket importLeadTicket = new ImportLeadTicket();
 
-            // Validation de l'email
-            try {
+                // Validation de l'email
                 String email = record.get("customer_email");
                 if (email == null || email.trim().isEmpty()) {
                     lineErrors.add("Email client manquant");
                 } else if (!isValidEmail(email)) {
                     lineErrors.add("Format email client invalide");
                 } else {
-                    importLeadTicket.setCustomerEmail(email.trim());
-                }
-            } catch (Exception e) {
-                lineErrors.add("Erreur de lecture de l'email client");
-            }
+                    email = email.trim().toLowerCase();
+                    importLeadTicket.setCustomerEmail(email);
 
-            // Validation du sujet/nom
-            try {
+                    if (!validEmails.contains(email)) {
+                        lineErrors.add("Aucun client trouvé avec cet email (ni en base ni dans l'import)");
+                    }
+                }
+
+                // Validation du sujet/nom
                 String subjectOrName = record.get("subject_or_name");
                 if (subjectOrName == null || subjectOrName.trim().isEmpty()) {
                     lineErrors.add("Sujet/Nom manquant");
@@ -128,12 +217,8 @@ public class ImportLeadTicketService {
                 } else {
                     importLeadTicket.setSubjectOrName(subjectOrName.trim());
                 }
-            } catch (Exception e) {
-                lineErrors.add("Erreur de lecture du sujet/nom");
-            }
 
-            // Validation du type
-            try {
+                // Validation du type
                 String type = record.get("type");
                 if (type == null || type.trim().isEmpty()) {
                     lineErrors.add("Type manquant");
@@ -142,12 +227,8 @@ public class ImportLeadTicketService {
                 } else {
                     importLeadTicket.setType(type.trim().toLowerCase());
                 }
-            } catch (Exception e) {
-                lineErrors.add("Erreur de lecture du type");
-            }
 
-            // Validation du statut
-            try {
+                // Validation du statut
                 String status = record.get("status");
                 if (status == null || status.trim().isEmpty()) {
                     lineErrors.add("Statut manquant");
@@ -156,32 +237,35 @@ public class ImportLeadTicketService {
                 } else {
                     importLeadTicket.setStatus(status.trim());
                 }
-            } catch (Exception e) {
-                lineErrors.add("Erreur de lecture du statut");
-            }
 
-            // Validation du montant
-            try {
+                // Validation du montant
                 String amountStr = record.get("expense");
                 if (amountStr == null || amountStr.trim().isEmpty()) {
                     lineErrors.add("Montant manquant");
                 } else {
-                    importLeadTicket.setAmount(parseAmount(amountStr));
+                    try {
+                        BigDecimal amount = parseAmount(amountStr);
+                        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+                            lineErrors.add("Le montant doit être positif");
+                        } else {
+                            importLeadTicket.setAmount(amount);
+                        }
+                    } catch (Exception e) {
+                        lineErrors.add("Erreur de montant: " + e.getMessage());
+                    }
                 }
-            } catch (Exception e) {
-                lineErrors.add("Erreur de montant: " + e.getMessage());
-            }
 
-            if (lineErrors.isEmpty()) {
-                importLeadTickets.add(importLeadTicket);
-            } else {
-                errorLines.add("Ligne " + lineNumber + " : " + String.join(", ", lineErrors));
+                if (lineErrors.isEmpty()) {
+                    importLeadTickets.add(importLeadTicket);
+                } else {
+                    errorLines.add("Ligne " + lineNumber + " : " + String.join(", ", lineErrors));
+                }
+                lineNumber++;
             }
-            lineNumber++;
         }
 
         if (!errorLines.isEmpty()) {
-            throw new Exception("Échec de l'import : \n" + String.join("\n", errorLines));
+            throw new Exception("Échec de l'import Leads/Tickets : \n" + String.join("\n", errorLines));
         }
         return importLeadTickets;
     }

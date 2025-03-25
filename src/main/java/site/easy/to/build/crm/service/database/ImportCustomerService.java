@@ -35,37 +35,6 @@ public class ImportCustomerService {
         this.customerService = customerService;
     }
 
-    // @Transactional
-    // public List<ImportCustomer> checkCsv(MultipartFile file) throws Exception {
-    // List<ImportCustomer> importCustomers = new ArrayList<>();
-    // List<String> errorLines = new ArrayList<>();
-
-    // // Lire le fichier CSV
-    // BufferedReader reader = new BufferedReader(
-    // new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
-    // CSVParser csvParser = new CSVParser(reader,
-    // CSVFormat.DEFAULT.withFirstRecordAsHeader());
-
-    // int lineNumber = 1;
-    // for (CSVRecord record : csvParser) {
-    // try {
-    // ImportCustomer importCustomer = new ImportCustomer();
-    // importCustomer.setCustomerEmail(record.get("customer_email"));
-    // importCustomer.setCustomerName(record.get("customer_name"));
-    // importCustomers.add(importCustomer);
-    // } catch (Exception e) {
-    // errorLines.add("Ligne " + lineNumber + " : " + e.getMessage());
-    // }
-    // lineNumber++;
-    // }
-
-    // // Si des erreurs sont survenues, les lister et les envoyer
-    // if (!errorLines.isEmpty()) {
-    // throw new Exception("Import failed at : " + errorLines);
-    // }
-    // return importCustomers;
-    // }
-
     @Transactional
     public List<ImportCustomer> checkCsv(MultipartFile file) throws Exception {
         List<ImportCustomer> importCustomers = new ArrayList<>();

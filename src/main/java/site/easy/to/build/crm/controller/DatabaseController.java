@@ -100,15 +100,6 @@ public class DatabaseController {
         List<ImportBudgetCustomer> importBudgetCustomers = new ArrayList<>();
         List<ImportCustomer> importCustomers = new ArrayList<>();
         List<ImportLeadTicket> importLeadTickets = new ArrayList<>();
-
-        try {
-            importLeadTickets = importLeadTicketService.checkCsv(leadTicketFile);
-        } catch (Exception e) {
-            errorMessages
-                    .add("Erreur dans le fichier '" + leadTicketFile.getOriginalFilename() + "' : " + e.getMessage());
-            errorMessages.add("\n");
-        }
-
         try {
             importCustomers = importCustomerService.checkCsv(customerFile);
         } catch (Exception e) {
@@ -118,7 +109,16 @@ public class DatabaseController {
         }
 
         try {
-            importBudgetCustomers = importBudgetCustomerService.checkCsv(budgetCustomerFile);
+            importLeadTickets = importLeadTicketService.checkCsv(leadTicketFile, importCustomers);
+        } catch (Exception e) {
+            errorMessages
+                    .add("Erreur dans le fichier '" + leadTicketFile.getOriginalFilename() + "' : " + e.getMessage());
+            errorMessages.add("\n");
+        }
+
+        try {
+            importCustomers = importCustomerService.checkCsv(customerFile);
+            importBudgetCustomers = importBudgetCustomerService.checkCsv(budgetCustomerFile, importCustomers);
         } catch (Exception e) {
             errorMessages.add(
                     "Erreur dans le fichier '" + budgetCustomerFile.getOriginalFilename() + "' : " + e.getMessage());
