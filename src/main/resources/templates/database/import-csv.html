@@ -79,30 +79,43 @@
                             <h4 class="card-title">Import CSV</h4>
                             
                             <!-- Messages -->
-                            <div th:if="${success}" class="alert alert-success">
+                            <!-- <div th:if="${success}" class="alert alert-success">
                                 <span th:text="${success}"></span>
                             </div>
                             
                             <div th:if="${error}" class="alert alert-danger">
                                 <span th:text="${error}"></span>
                                 <span th:if="${fileName}" th:text="' (Fichier: ' + ${fileName} + ')'"></span>
+                            </div> -->
+
+                            <div th:if="${message}" class="alert alert-success text-center" role="alert">
+                                <span th:text="${message}"></span>
+                            </div>
+                            <div th:if="${error}" class="alert alert-danger text-center" role="alert">
+                                <span th:text="${error}"></span>
                             </div>
                             
+                            
                             <!-- Formulaire -->
-                            <form th:action="@{/database/customers/import}" 
+                            <form th:action="@{/database/import-csv}" 
                                   enctype="multipart/form-data" method="post">
                                 <div class="form-group">
                                     <label for="file">Fichier CSV Customer:</label>
-                                    <input type="file" class="form-control" id="file" name="file" accept=".csv" required>
-                                    <small class="form-text text-muted">
-                                        Format: customer_email,customer_name
-                                    </small>
+                                    <input type="file" class="form-control" id="CustomerFile" name="CustomerFile" accept=".csv" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="file">Fichier CSV Budget:</label>
+                                    <input type="file" class="form-control" id="BudgetCustomerFile" name="BudgetCustomerFile" accept=".csv" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="file">Fichier CSV LeadTicket:</label>
+                                    <input type="file" class="form-control" id="LeadTicketFile" name="LeadTicketFile" accept=".csv" required>
                                 </div>
                                 <button type="submit" class="btn btn-primary">Importer CSV</button>
                             </form>
                             
                             <!-- Erreurs détaillées -->
-                            <div th:if="${errors}" class="mt-4">
+                            <!-- <div th:if="${errors}" class="mt-4">
                                 <h5>Détails des erreurs :</h5>
                                 <div class="table-responsive">
                                     <table class="table table-bordered table-sm">
@@ -126,7 +139,7 @@
                                         </tbody>
                                     </table>
                                 </div>
-                            </div>
+                            </div> -->
                         </div>
                     </div>
                 </div>
