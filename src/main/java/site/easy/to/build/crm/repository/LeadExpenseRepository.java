@@ -14,4 +14,6 @@ public interface LeadExpenseRepository extends JpaRepository<LeadExpense, Long> 
 
     @Query(value = "SELECT * FROM lead_expense WHERE trigger_lead_histo_id = :triggerLeadHistoId ORDER BY created_at DESC LIMIT 1", nativeQuery = true)
     LeadExpense findLatestByTriggerLeadHistoId(@Param("triggerLeadHistoId") Integer triggerLeadHistoId);
+
+    Optional<LeadExpense> findById(Integer id);
 }
