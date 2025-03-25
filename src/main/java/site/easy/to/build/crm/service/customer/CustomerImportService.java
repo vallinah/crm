@@ -20,6 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.ConstraintViolation;
 import site.easy.to.build.crm.dto.CustomerCsvDto;
 import site.easy.to.build.crm.entity.Customer;
+import site.easy.to.build.crm.entity.User;
 import site.easy.to.build.crm.repository.CustomerRepository;
 import site.easy.to.build.crm.repository.UserRepository;
 
@@ -29,6 +30,7 @@ public class CustomerImportService {
     private final CustomerRepository customerRepository;
     private final UserRepository userRepository;
     private final jakarta.validation.Validator validator;
+    private final Random random = new Random();
 
     public CustomerImportService(CustomerRepository customerRepository,
             UserRepository userRepository,
@@ -43,6 +45,11 @@ public class CustomerImportService {
         List<Customer> customersToSave = new ArrayList<>();
         List<LineError> errors = new ArrayList<>();
         String fileName = file.getOriginalFilename();
+
+        List<User> availableUsers = userRepository.findAll();
+        if (availableUsers.isEmpty()) {
+            throw new ImportException("Aucun utilisateur disponible dans la base de données", Collections.emptyList());
+        }
 
         try (BufferedReader fileReader = new BufferedReader(new InputStreamReader(file.getInputStream(), "UTF-8"));
                 CSVParser csvParser = new CSVParser(fileReader,
@@ -68,8 +75,13 @@ public class CustomerImportService {
                         continue;
                     }
 
-                    // Création et validation Customer
-                    Customer customer = createCustomerWithGeneratedData(dto);
+                    // Sélection aléatoire d'un utilisateur
+                    User randomUser = availableUsers.get(random.nextInt(availableUsers.size()));
+
+                    // Création du client
+                    Customer customer = createCustomerWithDefaults(dto, randomUser);
+
+                    // Validation JPA
                     Set<ConstraintViolation<Customer>> jpaViolations = validator.validate(customer);
                     if (!jpaViolations.isEmpty()) {
                         jpaViolations.forEach(v -> errors.add(
@@ -108,54 +120,51 @@ public class CustomerImportService {
         }
     }
 
-    private Customer createCustomerWithGeneratedData(CustomerCsvDto dto) {
+    private Customer createCustomerWithDefaults(CustomerCsvDto dto, User user) {
         Customer customer = new Customer();
         customer.setName(dto.getCustomerName());
         customer.setEmail(dto.getCustomerEmail());
         customer.setCreatedAt(LocalDateTime.now());
+        customer.setUser(user);
 
-        // Génération des données manquantes
+        // Valeurs par défaut
         customer.setCountry(generateRandomCountry());
         customer.setPhone(generateRandomPhone());
         customer.setAddress(generateRandomAddress());
         customer.setCity(generateRandomCity());
         customer.setState(generateRandomState());
-        customer.setDescription("Client importé automatiquement");
+        customer.setDescription("Client importé");
         customer.setPosition("Non spécifié");
-
-        // Pour les champs liés, on peut laisser null ou créer des valeurs factices
-        customer.setUser(null); // ou créer un user fictif si nécessaire
-        customer.setCustomerLoginInfo(null);
 
         return customer;
     }
 
-    // Méthodes pour générer des données aléatoires
     private String generateRandomCountry() {
         String[] countries = { "France", "USA", "UK", "Germany", "Spain", "Italy" };
         return countries[new Random().nextInt(countries.length)];
     }
 
+    // Méthodes pour générer des données aléatoires
     private String generateRandomPhone() {
-        return "+1-" + (1000000000 + new Random().nextInt(900000000));
+        return "+33" + (100000000 + random.nextInt(900000000));
     }
 
     private String generateRandomAddress() {
-        String[] streets = { "Main St", "First Ave", "Park Blvd", "Oak Rd", "Pine Ln" };
-        return (new Random().nextInt(999) + 1) + " " + streets[new Random().nextInt(streets.length)];
+        String[] streets = { "Rue de la Paix", "Avenue des Champs-Élysées", "Boulevard Saint-Germain" };
+        return (random.nextInt(100) + 1) + " " + streets[random.nextInt(streets.length)];
     }
 
     private String generateRandomCity() {
-        String[] cities = { "Paris", "New York", "London", "Berlin", "Madrid", "Rome" };
-        return cities[new Random().nextInt(cities.length)];
+        String[] cities = { "Paris", "Lyon", "Marseille", "Toulouse", "Nice" };
+        return cities[random.nextInt(cities.length)];
     }
 
     private String generateRandomState() {
-        String[] states = { "Île-de-France", "California", "England", "Bavaria", "Catalonia", "Lazio" };
-        return states[new Random().nextInt(states.length)];
+        String[] states = { "Île-de-France", "Auvergne-Rhône-Alpes", "Provence-Alpes-Côte d'Azur" };
+        return states[random.nextInt(states.length)];
     }
 
-    // Classes internes pour le résultat
+    // Classes internes
     public static class ImportResult {
         private final int savedCount;
         private final String fileName;
@@ -228,17 +237,5 @@ public class CustomerImportService {
         public List<LineError> getErrors() {
             return errors;
         }
-    }
-
-    private <T> LineError createLineError(CSVRecord record, String fileName,
-            ConstraintViolation<T> violation,
-            String email, String name) {
-        return new LineError(
-                fileName,
-                record.getRecordNumber(),
-                violation.getPropertyPath().toString(),
-                violation.getMessage(),
-                email,
-                name);
     }
 }
