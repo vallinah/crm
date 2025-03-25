@@ -77,33 +77,56 @@
                     <div class="card">
                         <div class="card-body">
                             <h4 class="card-title">Import CSV</h4>
-                            <form th:object="${contract}" th:action="@{/employee/contract/create}"
-                                  enctype="multipart/form-data" id="email-form" method="post">
-
-                                <!-- <label class="m-t-20" for="status">status:</label>
-                                <div class="input-group">
-                                    <select id="status" th:field="*{status}" class="form-control">
-                                        <option value="expired">Expired</option>
-                                        <option value="canceled">Canceled</option>
-                                        <option value="archived">Archived</option>
-                                        <option value="active">Active</option>
-                                    </select>
-                                </div> -->
-
-                                <!-- <label class="m-t-20" for="customerId">Customer:</label>
-                                <div class="input-group">
-                                    <select name="customerId" id="customerId" class="form-control">
-                                        <option th:each="customer : ${customers}" th:text="${customer.name}"
-                                                th:value="${customer.customerId}"></option>
-                                    </select>
-                                </div> -->
-
-                                <label class="m-t-20"><i class="ti-link"></i> CSV</label>
+                            
+                            <!-- Messages -->
+                            <div th:if="${success}" class="alert alert-success">
+                                <span th:text="${success}"></span>
+                            </div>
+                            
+                            <div th:if="${error}" class="alert alert-danger">
+                                <span th:text="${error}"></span>
+                                <span th:if="${fileName}" th:text="' (Fichier: ' + ${fileName} + ')'"></span>
+                            </div>
+                            
+                            <!-- Formulaire -->
+                            <form th:action="@{/database/customers/import}" 
+                                  enctype="multipart/form-data" method="post">
                                 <div class="form-group">
-                                    <div class="dropzone" id="my-dropzone"></div>
+                                    <label for="file">Fichier CSV Customer:</label>
+                                    <input type="file" class="form-control" id="file" name="file" accept=".csv" required>
+                                    <small class="form-text text-muted">
+                                        Format: customer_email,customer_name
+                                    </small>
                                 </div>
-                                <button type="submit" class="btn btn-primary m-t-20">Importer CSV</button>
+                                <button type="submit" class="btn btn-primary">Importer CSV</button>
                             </form>
+                            
+                            <!-- Erreurs détaillées -->
+                            <div th:if="${errors}" class="mt-4">
+                                <h5>Détails des erreurs :</h5>
+                                <div class="table-responsive">
+                                    <table class="table table-bordered table-sm">
+                                        <thead class="thead-light">
+                                            <tr>
+                                                <th>Ligne</th>
+                                                <th>Email</th>
+                                                <th>Nom</th>
+                                                <th>Champ</th>
+                                                <th>Erreur</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr th:each="err : ${errors}">
+                                                <td th:text="${err.lineNumber}"></td>
+                                                <td th:text="${err.email}"></td>
+                                                <td th:text="${err.name}"></td>
+                                                <td th:text="${err.field}"></td>
+                                                <td th:text="${err.message}"></td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
