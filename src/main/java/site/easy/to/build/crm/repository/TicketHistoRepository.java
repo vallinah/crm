@@ -12,15 +12,17 @@ import site.easy.to.build.crm.entity.TicketHisto;
 
 @Repository
 public interface TicketHistoRepository extends JpaRepository<TicketHisto, Integer> {
-    public TicketHisto findById(int ticketId);
+        public TicketHisto findById(int ticketId);
 
-    public List<TicketHisto> findByCustomerCustomerId(int customerId);
+        public List<TicketHisto> findByCustomerCustomerId(int customerId);
 
-    @Query("SELECT t FROM TicketHisto t " +
-            "WHERE t.deleteAt IS NULL " +
-            "AND (:date1 IS NULL OR t.createdAt >= :date1) " +
-            "AND (:date2 IS NULL OR t.createdAt <= :date2)")
-    List<TicketHisto> getBetweenDate(
-            @Param("date1") LocalDateTime date1,
-            @Param("date2") LocalDateTime date2);
+        @Query("SELECT t FROM TicketHisto t " +
+                        "WHERE t.deleteAt IS NULL " +
+                        "AND (:date1 IS NULL OR t.createdAt >= :date1) " +
+                        "AND (:date2 IS NULL OR t.createdAt <= :date2)")
+        List<TicketHisto> getBetweenDate(
+                        @Param("date1") LocalDateTime date1,
+                        @Param("date2") LocalDateTime date2);
+
+        List<TicketHisto> findByDeleteAtIsNull();
 }

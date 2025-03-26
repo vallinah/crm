@@ -68,4 +68,9 @@ public class TriggerLeadHistoServiceImpl implements TriggerLeadHistoService {
     public void softDelete(Integer id) {
         triggerLeadHistoRepository.markAsDeletedNow(id);
     }
+
+    @Override
+    public List<TriggerLeadHisto> getTriggerLeadHistoBetweenDates(LocalDateTime startDate, LocalDateTime endDate) {
+        return triggerLeadHistoRepository.getBetweenDate(startDate, endDate);
+    }
 }

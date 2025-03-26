@@ -2,6 +2,7 @@ package site.easy.to.build.crm.service.budget;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -72,5 +73,9 @@ public class BudgetService {
         System.out.println("tauxAlert: " + tauxAlert + "");
 
         return pourcentageDepense.compareTo(tauxAlert) >= 0;
+    }
+
+    public List<Budget> getTriggerLeadHistoBetweenDates(LocalDate startDate, LocalDate endDate) {
+        return budgetRepository.findBudgetsBetweenDates(startDate, endDate);
     }
 }

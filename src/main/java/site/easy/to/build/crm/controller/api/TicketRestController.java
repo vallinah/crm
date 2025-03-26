@@ -1,12 +1,14 @@
 package site.easy.to.build.crm.controller.api;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import site.easy.to.build.crm.entity.Ticket;
 import site.easy.to.build.crm.entity.TicketHisto;
+import site.easy.to.build.crm.entity.TriggerLeadHisto;
 import site.easy.to.build.crm.entity.User;
 import site.easy.to.build.crm.service.ticket.TicketHistoService;
 import site.easy.to.build.crm.service.ticket.TicketService;
@@ -58,10 +60,31 @@ public class TicketRestController {
     }
 
     @GetMapping("/all")
-    public ResponseEntity<List<TicketHisto>> getAllHistorique(
-            @RequestParam(required = false) LocalDateTime date1,
-            @RequestParam(required = false) LocalDateTime date2) {
-        List<TicketHisto> ticketHistos = ticketHistoService.getBetweenDate(date1, date2);
+    public ResponseEntity<List<TicketHisto>> getAllHistorique() {
+        List<TicketHisto> ticketHistos = ticketHistoService.getAll();
         return ResponseEntity.ok(ticketHistos);
+    }
+
+    @GetMapping("/condition")
+    public ResponseEntity<List<TicketHisto>> getAllHistoriqueBetweenDate(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime date1,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime date2) {
+        try {
+            // Validation des dates
+            if (date1 == null || date2 == null) {
+                throw new IllegalArgumentException("Les deux dates sont requises");
+            }
+
+            if (date1.isAfter(date2)) {
+                throw new IllegalArgumentException("La date de début doit être avant la date de fin");
+            }
+
+            List<TicketHisto> ticketHistos = ticketHistoService.getBetweenDate(date1, date2);
+            return ResponseEntity.ok(ticketHistos);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 }
