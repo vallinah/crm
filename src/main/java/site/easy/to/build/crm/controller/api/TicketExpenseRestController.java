@@ -1,20 +1,15 @@
 package site.easy.to.build.crm.controller.api;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 import site.easy.to.build.crm.entity.TicketExpense;
 import site.easy.to.build.crm.service.ticket.TicketExpenseService;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/ticket-expenses")
@@ -43,6 +38,15 @@ public class TicketExpenseRestController {
 
             return ResponseEntity.ok(defaultTicketExpense);
         }
+    }
+
+    @GetMapping("/total")
+    public ResponseEntity<BigDecimal> getTotalExpenses(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+
+        BigDecimal total = ticketExpenseService.getTotalExpensesBetweenDates(startDate, endDate);
+        return ResponseEntity.ok(total);
     }
 
     // Mettre à jour une dépense

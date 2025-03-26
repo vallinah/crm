@@ -1,12 +1,14 @@
 package site.easy.to.build.crm.service.customer;
 
+import java.util.List;
+import java.util.Set;
+
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import site.easy.to.build.crm.repository.CustomerRepository;
-import site.easy.to.build.crm.entity.Customer;
 
-import java.util.List;
+import site.easy.to.build.crm.entity.Customer;
+import site.easy.to.build.crm.repository.CustomerRepository;
 
 @Service
 public class CustomerServiceImpl implements CustomerService {
@@ -56,5 +58,10 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     public long countByUserId(int userId) {
         return customerRepository.countByUserId(userId);
+    }
+
+    @Override
+    public Set<String> findAllEmails() {
+        return customerRepository.findAllEmails();
     }
 }

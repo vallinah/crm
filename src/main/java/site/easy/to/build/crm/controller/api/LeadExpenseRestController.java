@@ -1,20 +1,21 @@
 package site.easy.to.build.crm.controller.api;
 
-import java.util.Optional;
-
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
-import site.easy.to.build.crm.dto.LeadExpenseUpdateDto;
 import site.easy.to.build.crm.entity.LeadExpense;
 import site.easy.to.build.crm.entity.TriggerLeadHisto;
 import site.easy.to.build.crm.service.lead.LeadExpenseService;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+import site.easy.to.build.crm.dto.LeadExpenseUpdateDto;
 
 @RestController
 @RequestMapping("/api/lead-expenses")
@@ -27,14 +28,6 @@ public class LeadExpenseRestController {
         this.leadExpenseService = leadExpenseService;
     }
 
-    // Récupérer toutes les dépenses pour un lead
-    // @GetMapping("/lead/{leadId}")
-    // public ResponseEntity<List<LeadExpense>>
-    // getExpensesByLeadId(@PathVariable("leadId") int leadId) {
-    // List<LeadExpense> expenses = leadExpenseService.
-    // return new ResponseEntity<>(expenses, HttpStatus.OK);
-    // }
-
     @GetMapping("/{id}")
     public ResponseEntity<LeadExpense> getExpenseById(@PathVariable("id") int id) {
         Optional<LeadExpense> expense = Optional.ofNullable(leadExpenseService.findLatestByTriggerLeadHistoId(id));
@@ -45,6 +38,15 @@ public class LeadExpenseRestController {
     public ResponseEntity<LeadExpense> getExpenseByIdLead(@PathVariable("id") int id) {
         Optional<LeadExpense> expense = Optional.ofNullable(leadExpenseService.findById(id));
         return expense.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/total")
+    public ResponseEntity<BigDecimal> getTotalExpenses(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+
+        BigDecimal total = leadExpenseService.getTotalExpensesBetweenDates(startDate, endDate);
+        return ResponseEntity.ok(total);
     }
 
     @PutMapping("/update")
@@ -71,30 +73,4 @@ public class LeadExpenseRestController {
         }
     }
 
-    // Créer une nouvelle dépense pour un lead
-    // @PostMapping
-    // public ResponseEntity<LeadExpense> createExpense(@RequestBody LeadExpense
-    // leadExpense) {
-    // LeadExpense createdExpense = leadExpenseService.createExpense(leadExpense);
-    // return new ResponseEntity<>(createdExpense, HttpStatus.CREATED);
-    // }
-
-    // Mettre à jour une dépense existante
-    // @PutMapping("/{id}")
-    // public ResponseEntity<LeadExpense> updateExpense(@PathVariable("id") int id,
-    // @RequestBody LeadExpense leadExpense) {
-    // leadExpense.setId(id);
-    // LeadExpense updatedExpense = leadExpenseService.updateExpense(leadExpense);
-    // return updatedExpense != null ? new ResponseEntity<>(updatedExpense,
-    // HttpStatus.OK)
-    // : ResponseEntity.notFound().build();
-    // }
-
-    // // Supprimer une dépense
-    // @DeleteMapping("/{id}")
-    // public ResponseEntity<Void> deleteExpense(@PathVariable("id") int id) {
-    // boolean isDeleted = leadExpenseService.deleteExpense(id);
-    // return isDeleted ? ResponseEntity.noContent().build() :
-    // ResponseEntity.notFound().build();
-    // }
 }

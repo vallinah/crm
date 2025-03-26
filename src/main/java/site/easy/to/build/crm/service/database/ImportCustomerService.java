@@ -1,26 +1,27 @@
 package site.easy.to.build.crm.service.database;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Pattern;
+
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+
 import site.easy.to.build.crm.entity.Customer;
 import site.easy.to.build.crm.entity.ImportCustomer;
-import site.easy.to.build.crm.entity.ImportLeadTicket;
 import site.easy.to.build.crm.repository.ImportCustomerRepository;
 import site.easy.to.build.crm.service.customer.CustomerService;
 import site.easy.to.build.crm.service.user.UserService;
-
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.regex.Pattern;
 
 @Service
 public class ImportCustomerService {
@@ -41,6 +42,8 @@ public class ImportCustomerService {
         List<String> errorLines = new ArrayList<>();
         Set<String> existingEmails = new HashSet<>();
 
+        Set<String> dbEmails = customerService.findAllEmails();
+
         BufferedReader reader = new BufferedReader(
                 new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
         CSVParser csvParser = new CSVParser(reader, CSVFormat.DEFAULT.withFirstRecordAsHeader());
@@ -59,6 +62,8 @@ public class ImportCustomerService {
                     lineErrors.add("Format email client invalide");
                 } else if (existingEmails.contains(email)) {
                     lineErrors.add("Email en double");
+                } else if (dbEmails.contains(email.trim())) {
+                    lineErrors.add("Email existe déjà dans la base de données");
                 } else {
                     importCustomer.setCustomerEmail(email.trim());
                     existingEmails.add(email.trim());
@@ -114,6 +119,7 @@ public class ImportCustomerService {
             customer.setUser(userService.findById(52));
             customer.setAddress("Andoharanofotsy");
             customer.setCountry("Madagascar");
+            customer.setCreatedAt(LocalDateTime.now());
             customerService.save(customer);
         }
     }
